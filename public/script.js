@@ -31,7 +31,7 @@ async function verifyToken() {
         console.log(at.toLocaleString());
         console.log(exp.toLocaleString());
 
-        const exptime = data.exp;
+        const exptime = data.result.exp;
         const current = new Date().getTime();
 
         if(current>exptime){
