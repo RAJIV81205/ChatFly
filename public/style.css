@@ -288,6 +288,7 @@ footer {
 .main-login-section {
     margin: 2% 0;
     width: 97%;
+    min-height: 100vh;
     height: fit-content;
     background-image: url(img/output-onlinepngtools\ \(1\).png);
     background-size: cover;
@@ -335,6 +336,7 @@ footer {
     top: 0;
     left: 0;
     z-index: -1;
+    transition: transform 0.5s;
 }
 
 #select-login-btn,
@@ -370,7 +372,7 @@ footer {
     color: #000000;
 }
 
-.input-wrapper {
+.input-wrapper  {
     position: relative;
     margin-bottom: 10px;
     width: 100%;
@@ -378,11 +380,14 @@ footer {
     align-items: center;
 }
 
+.signup-wrapper{
+    margin-bottom: 25px;
+}
+
 .input-wrapper img {
     position: absolute;
     height: 18px;
     width: 18px;
-
     left: 8px;
     filter: invert(50%);
     pointer-events: none;
@@ -434,7 +439,7 @@ input:not(:placeholder-shown)+label {
 
 }
 
-#login-btn{
+#login-btn , #signup-btn{
     margin: 25px 0;
     background-color: #76e698;
     color: #000000;
@@ -448,7 +453,7 @@ input:not(:placeholder-shown)+label {
     transition: width 0.3s ease, letter-spacing 0.3s ease , font-weight 0.3s  ,background-color 0.3s;
 }
 
-#login-btn:hover{
+#login-btn:hover , #signup-btn:hover{
     width: 50%;
     letter-spacing: 3px;
     font-weight: bold;
@@ -477,6 +482,7 @@ span{
 
 
 #google-login,#git-login {
+    letter-spacing: 1px;
     width: 60%;
     border-radius: 25px;
     border: 1px solid black;
