@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Kadwa:wght@400;700&family=Merienda:wght@300..900&family=Salsa&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo+Play:wght@200..1000&family=Kadwa:wght@400;700&family=Merienda&family=Salsa&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap');
 
 
 * {
@@ -7,10 +7,17 @@
     scroll-behavior: smooth;
     --primary-green-color: #2DFF11;
     --primary-black-color: #444444;
-    font-family: "Kadwa", serif;
-    font-weight: 400;
+    font-family: "Cairo Play", serif;
+    font-optical-sizing: auto;
+    font-weight: 500;
     font-style: normal;
+    font-variation-settings:
+        "slnt" 0;
 
+}
+
+:-webkit-any-link{
+    color: var(--primary-black-color);
 }
 
 body {
@@ -22,7 +29,7 @@ body {
     position: relative;
 }
 
-.blob-container{
+.blob-container {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -37,53 +44,53 @@ body {
 
 
 .blob {
-   width: 112px;
-   height: 112px;
-   display: grid;
-   background: #fff;
-   filter: blur(5.6px) contrast(10);
-   padding: 11.2px;
-   mix-blend-mode: darken;
+    width: 112px;
+    height: 112px;
+    display: grid;
+    background: #fff;
+    filter: blur(5.6px) contrast(10);
+    padding: 11.2px;
+    mix-blend-mode: darken;
 
 
 }
 
 .blob:before,
 .blob:after {
-   content: "";
-   grid-area: 1/1;
-   width: 44.8px;
-   height: 44.8px;
-   background: #2dff11;
-   animation: blob-rhf26m 2s infinite;
+    content: "";
+    grid-area: 1/1;
+    width: 44.8px;
+    height: 44.8px;
+    background: #2dff11;
+    animation: blob-rhf26m 2s infinite;
 
 }
 
 .blob:after {
-   animation-delay: -1s;
+    animation-delay: -1s;
 
 }
 
 @keyframes blob-rhf26m {
-   0% {
-      transform: translate(0, 0);
-   }
+    0% {
+        transform: translate(0, 0);
+    }
 
-   25% {
-      transform: translate(100%, 0);
-   }
+    25% {
+        transform: translate(100%, 0);
+    }
 
-   50% {
-      transform: translate(100%, 100%);
-   }
+    50% {
+        transform: translate(100%, 100%);
+    }
 
-   75% {
-      transform: translate(0, 100%);
-   }
+    75% {
+        transform: translate(0, 100%);
+    }
 
-   100% {
-      transform: translate(0, 0);
-   }
+    100% {
+        transform: translate(0, 0);
+    }
 }
 
 
@@ -222,7 +229,10 @@ header {
 }
 
 
-.sec-2 , .sec-3  , .sec-4 , .sec-5{
+.sec-2,
+.sec-3,
+.sec-4,
+.sec-5 {
     display: flex;
     flex-direction: row;
     width: 100%;
@@ -264,13 +274,13 @@ header {
     font-style: normal;
 }
 
-footer{
+footer {
     height: 80vh;
     width: 100%;
     background-color: var(--primary-black-color);
 }
 
-.main-login-section{
+.main-login-section {
     margin: 2% 0;
     width: 97%;
     height: fit-content;
@@ -284,11 +294,11 @@ footer{
     overflow: hidden;
 }
 
-.login-container{
+.login-container {
     padding: 25px 0;
     margin: 25px 0;
-    min-width: 30%;
-    width: fit-content;
+    max-width: 90%;
+    width: 500px;
     height: fit-content;
     display: flex;
     flex-direction: column;
@@ -299,7 +309,7 @@ footer{
     backdrop-filter: blur(10px);
 }
 
-.btn-selection{
+.btn-selection {
     position: relative;
     display: flex;
     flex-direction: row;
@@ -308,9 +318,10 @@ footer{
     border: 1px solid rgb(0, 101, 77);
     border-radius: 25px;
     padding: 10px 0;
+    margin: 10px 0;
 }
 
-.selected-btn{
+.selected-btn {
     position: absolute;
     height: 100%;
     width: 50%;
@@ -321,7 +332,8 @@ footer{
     z-index: -1;
 }
 
-#select-login-btn , #select-signup-btn{
+#select-login-btn,
+#select-signup-btn {
     letter-spacing: 2px;
     width: 100%;
     height: 100%;
@@ -332,7 +344,7 @@ footer{
     cursor: pointer;
 }
 
-#form-container{
+#form-container {
     margin: 25px 0;
     width: 90%;
     display: flex;
@@ -340,16 +352,118 @@ footer{
     justify-content: center;
     align-items: center;
 }
-label{
-    text-align: left;
+
+.forgot {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
     width: 100%;
 }
 
-input{
+.forgot a:hover{
+    color: #000000;
+}
+
+.input-wrapper {
+    position: relative;
+    margin-bottom: 10px;
     width: 100%;
-    padding: 10px 0 10px 5px;
+    display: flex;
+    align-items: center;
+}
+
+.input-wrapper img {
+    position: absolute;
+    height: 18px;
+    width: 18px;
+
+    left: 8px;
+    filter: invert(50%);
+    pointer-events: none;
+
+
+}
+
+
+label {
+    position: absolute;
+    top: 50%;
+    left: 32px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #888;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+    pointer-events: none;
+
+}
+
+
+input {
+    width: 100%;
+    padding: 12px 0 12px 32px;
+    border: 1px solid var(--primary-black-color);
     border-radius: 4px;
-    border: 1px solid rgba(128, 128, 128, 0.451);
-    margin-bottom: 20px;
+    font-size: 14px;
+    background: transparent;
+    transition: border-color 0.3s ease;
+    letter-spacing: 1px;
 }
 
+input:focus {
+    outline: none;
+    border-color: #4caf50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+}
+
+
+input:focus+label,
+input:not(:placeholder-shown)+label {
+    top: -10px;
+    left: 5px;
+    font-size: 12px;
+    color: var(--primary-black-color);
+
+
+}
+
+#login-btn{
+    margin: 25px 0;
+    background-color: #76e698;
+    color: #000000;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    width: 30%;
+    padding: 5px 20px;
+    cursor: pointer;
+    border: 1px solid black;
+    border-radius: 8px;
+    transition: width 0.3s ease, letter-spacing 0.3s ease , font-weight 0.3s  ,background-color 0.3s;
+}
+
+#login-btn:hover{
+    width: 50%;
+    letter-spacing: 3px;
+    font-weight: bold;
+    background-color: #23e6b8;
+    box-shadow: 0 0 3px rgba(128, 128, 128, 0.673);
+}
+
+.line{
+    width: 80%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+}
+
+span{
+    width: 90%;
+    border: 1px solid rgba(128, 128, 128, 0.523);
+    border-radius: 25px;
+}
+
+.line p{
+    padding: 0 10px;
+}
