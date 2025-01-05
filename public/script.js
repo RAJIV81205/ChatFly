@@ -1,27 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     const loader = document.querySelector('.blob-container')
     loader.style.display = "none"
+    try {
+        verifyToken()
+    } catch (error) {
+        console.error(error)
+        
+    }
 })
 
-try {
-    document.getElementById('dashboard-button').addEventListener('click', () => {
-        token = localStorage.getItem('token');
-        const status = verifyToken(token)
-        if (status === "Valid Token") {
-            window.location.href = 'dashboard.html';
-        }
-        else {
-            alert("Invalid or Expired Token")
-            window.location.href = "login.html"
-        }
-    })
-} catch (error) {
-
-}
 
 
-async function verifyToken(token) {
-    const response = await fetch("http://localhost:3000/verify-token", {
+async function verifyToken() {
+    const token = localStorage.getItem('token')
+    const response = await fetch("http://localhost:3000/verify", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json',
@@ -31,12 +23,22 @@ async function verifyToken(token) {
     })
     const data = await response.json()
     if (response.ok) {
-        console.log(data)
-    }
-    else {
-        console.error("Error Verifying Token:", error)
-    }
+        console.log(data.message);
+        console.log(data.result.id)
 
+        const at = new Date(data.result.iat * 1000);
+        const exp = new Date(data.result.exp * 1000);
+        console.log(at.toLocaleString());
+        console.log(exp.toLocaleString());
+
+        const exptime = data.exp;
+        const current = new Date().getTime();
+
+        if(current>exptime){
+            localStorage.removeItem("token")
+        }
+
+    }
 }
 
 try {
@@ -97,10 +99,10 @@ async function signupUser() {
     const password = document.getElementById('signup-password').value.trim();
     const time = new Date().toLocaleString();
 
-   
+
     if (!username || !mobile || !email || !password) {
         alert("Please fill all the fields.");
-        return; 
+        return;
     }
 
     try {
@@ -118,20 +120,20 @@ async function signupUser() {
             }),
         });
 
-       
+
         if (response.ok) {
             const data = await response.json();
             console.log("Signup Successful:", data);
-            alert("Signup Successful!"); 
-            window.location.href="login.html"
+            alert("Signup Successful!");
+            window.location.href = "login.html"
         } else {
-            
+
             const errorData = await response.json();
             console.error("Error:", errorData.message || "Something went wrong.");
             alert(`Error: ${errorData.message || "Signup failed."}`);
         }
     } catch (error) {
-        
+
         console.error("Fetch Error:", error);
         alert("Error: Unable to signup. Please try again later.");
     }
@@ -196,6 +198,40 @@ try {
 }
 
 
-function loginUser() {
-    alert('working')
+async function loginUser() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+        alert("Please fill the details")
+        return;
+    }
+
+    try {
+        const response = await fetch('http://localhost:3000/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: email,
+                password: password
+            })
+
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+            console.log(data)
+            localStorage.setItem('token', data.token)
+        }
+        else {
+            alert("Invalid credentials")
+            console.error("Error:", data.message)
+        }
+    } catch (error) {
+        console.error(error)
+    }
+
 }

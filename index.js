@@ -99,7 +99,7 @@ app.post('/login', async (req, res) => {
         const token = jwt.sign(
             { id: user._id },
             JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '30 days' }
         );
 
 
@@ -114,6 +114,32 @@ app.post('/login', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+
+app.post('/verify', (req, res) => {
+    const { token } = req.body; 
+
+    if (!token) {
+        return res.status(400).json({ message: 'Token is required' });
+    }
+
+    try {
+        
+        const result = jwt.verify(token, JWT_SECRET);
+
+
+        res.status(200).json({
+            message: 'Token verified successfully',
+            result,
+        });
+    } catch (error) {
+        
+        res.status(401).json({
+            message: 'Invalid or expired token',
+            error: error.message,
+        });
     }
 });
 
