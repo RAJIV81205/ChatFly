@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function verifyToken() {
     const token = localStorage.getItem('token')
-    const response = await fetch("http://localhost:3000/verify", {
+    const response = await fetch("https://chatfly.onrender.com/verify", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ async function signupUser() {
     }
 
     try {
-        const response = await fetch('http://localhost:3000/signup', {
+        const response = await fetch('https://chatfly.onrender.com/signup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ async function loginUser() {
     }
 
     try {
-        const response = await fetch('http://localhost:3000/login', {
+        const response = await fetch('https://chatfly.onrender.com/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
