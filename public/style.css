@@ -14,6 +14,10 @@
     font-variation-settings:
         "slnt" 0;
 
+    &&::-webkit-scrollbar {
+        display: none;
+    }
+
 }
 
 :-webkit-any-link {
@@ -558,6 +562,7 @@ span {
         justify-content: center;
         align-items: center;
         padding: 20px 0;
+        text-wrap: balance;
     }
 
     .text-box p {
@@ -568,4 +573,127 @@ span {
     .nav ul {
         display: none;
     }
+}
+
+.main-dashboard-section {
+    margin: 1% 0;
+    width: 97%;
+    height: 95vh;
+    background-color: #5c5b5b;
+    border-radius: 20px;
+    border: 1px solid #000000;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    overflow: hidden;
+}
+
+.people-container {
+    height: 100%;
+    width: 30%;
+    background-color: #363636;
+    overflow-y: scroll;
+    scrollbar-width: 0px;
+
+}
+
+.message-container {
+    height: 100%;
+    width: 70%;
+    background-color: whitesmoke;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.user-detail-container {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    height: 10vh;
+    width: 100%;
+    justify-content: space-between;
+    background-color: #000000;
+    align-items: center;
+}
+
+.user-detail {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    height: 100%;
+
+}
+
+.user-detail img {
+    height: 70%;
+    aspect-ratio: 1/1;
+    justify-content: flex-start;
+    padding: 0 20px;
+}
+
+.user-detail p {
+    color: #23e6b8;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    word-spacing: 2px;
+    flex-wrap: nowrap;
+}
+
+
+.extra-icons {
+    height: 100%;
+    justify-content: flex-end;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.extra-icons img {
+    height: 50%;
+    aspect-ratio: 1/1;
+    padding: 0 20px;
+    filter: invert(100%);
+
+}
+
+#all-message {
+    width: 100%;
+    height: 80vh;
+
+    flex-direction: column;
+    background-image: url(img/output-onlinepngtools\ \(2\).png);
+    overflow-y: scroll;
+}
+
+.message {
+    width:fit-content;
+    max-width: 40%;
+    padding: 10px;
+    height: fit-content;
+    background-color: #23e6b8;
+    margin: 10px;
+}
+
+.right {
+    clear: both;
+    float: right;
+
+}
+
+.left{
+    clear: both;
+    float: left;
+}
+
+.input-container {
+    display: flex;
+    width: 100%;
+    height: 10vh;
+    flex-direction: row;
+    background-color: #4caf50;
+
+
 }
