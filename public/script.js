@@ -2,10 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const loader = document.querySelector('.blob-container')
     loader.style.display = "none"
     try {
-        verifyToken()
+        if (window.location.pathname.split("/").pop() == "dashboard.html"  || window.location.pathname.split("/").pop() == "dashboard") {
+            verifyToken()
+        }
+
     } catch (error) {
         console.error(error)
-        
+
     }
 })
 
@@ -13,6 +16,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function verifyToken() {
     const token = localStorage.getItem('token')
+    if (!token) {
+        console.log("No Token")
+        window.location.href = "login.html"
+        return
+    }
     const response = await fetch("https://chatfly.onrender.com/verify", {
         method: "POST",
         headers: {
@@ -31,15 +39,31 @@ async function verifyToken() {
         console.log(at.toLocaleString());
         console.log(exp.toLocaleString());
 
-        const exptime = data.result.exp;
-        const current = new Date().getTime();
+        const exptime = exp;
+        const current = new Date();
+        console.log(exptime, current)
 
-        if(current>exptime){
-            localStorage.removeItem("token")
+        if (exptime < current) {
+            localStorage.removeItem('token')
+            window.location.href="login.html"
+        }
+        else {
+            updateMessages(data.result.id);
+
         }
 
     }
 }
+
+try{
+document.getElementById('dashboard-button').addEventListener('click',()=>{
+    window.location.href="dashboard.html"
+})
+}catch(error){
+    console.error(error)
+}
+
+
 
 try {
     document.getElementById('select-signup-btn').addEventListener('click', () => {
@@ -198,6 +222,9 @@ try {
 }
 
 
+
+
+
 async function loginUser() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
@@ -225,6 +252,7 @@ async function loginUser() {
         if (response.ok) {
             console.log(data)
             localStorage.setItem('token', data.token)
+            window.location.href = 'dashboard.html'
         }
         else {
             alert("Invalid credentials")
