@@ -16,7 +16,7 @@
 
 }
 
-:-webkit-any-link{
+:-webkit-any-link {
     color: var(--primary-black-color);
 }
 
@@ -264,12 +264,12 @@ header {
 
 }
 
-strong{
+strong {
     font-weight: bold;
     letter-spacing: 1px;
 }
 
-strong::before{
+strong::before {
     content: '• ';
 }
 
@@ -371,11 +371,11 @@ footer {
     width: 100%;
 }
 
-.forgot a:hover{
+.forgot a:hover {
     color: #000000;
 }
 
-.input-wrapper  {
+.input-wrapper {
     position: relative;
     margin-bottom: 10px;
     width: 100%;
@@ -383,7 +383,7 @@ footer {
     align-items: center;
 }
 
-.signup-wrapper{
+.signup-wrapper {
     margin-bottom: 25px;
 }
 
@@ -422,7 +422,7 @@ input {
     background: transparent;
     transition: border-color 0.3s ease;
     letter-spacing: 1px;
-    font-weight:bold;
+    font-weight: bold;
 }
 
 input:focus {
@@ -442,7 +442,8 @@ input:not(:placeholder-shown)+label {
 
 }
 
-#login-btn , #signup-btn{
+#login-btn,
+#signup-btn {
     margin: 25px 0;
     background-color: #76e698;
     color: #000000;
@@ -453,10 +454,11 @@ input:not(:placeholder-shown)+label {
     cursor: pointer;
     border: 1px solid black;
     border-radius: 8px;
-    transition: width 0.3s ease, letter-spacing 0.3s ease , font-weight 0.3s  ,background-color 0.3s;
+    transition: width 0.3s ease, letter-spacing 0.3s ease, font-weight 0.3s, background-color 0.3s;
 }
 
-#login-btn:hover , #signup-btn:hover{
+#login-btn:hover,
+#signup-btn:hover {
     width: 50%;
     letter-spacing: 3px;
     font-weight: bold;
@@ -464,7 +466,7 @@ input:not(:placeholder-shown)+label {
     box-shadow: 0 0 3px rgba(128, 128, 128, 0.673);
 }
 
-.line{
+.line {
     width: 80%;
     display: flex;
     justify-content: center;
@@ -473,18 +475,19 @@ input:not(:placeholder-shown)+label {
 
 }
 
-span{
+span {
     width: 90%;
     border: 1px solid rgba(128, 128, 128, 0.523);
     border-radius: 25px;
 }
 
-.line p{
+.line p {
     padding: 0 10px;
 }
 
 
-#google-login,#git-login {
+#google-login,
+#git-login {
     letter-spacing: 1px;
     width: 60%;
     border-radius: 25px;
@@ -495,45 +498,53 @@ span{
     display: flex;
     justify-content: center;
     align-items: center;
-    
-}
-
-#google-login:hover{
-    background:linear-gradient(-120deg, #4286f457, #34a85363, #fbbd055e, #ea44355b);
 
 }
 
-#git-login:hover{
-    background:linear-gradient(0deg, rgba(239,244,244,1) 0%, rgba(128,124,124,1) 100%);
+#google-login:hover {
+    background: linear-gradient(-120deg, #4286f457, #34a85363, #fbbd055e, #ea44355b);
+
+}
+
+#git-login:hover {
+    background: linear-gradient(0deg, rgba(239, 244, 244, 1) 0%, rgba(128, 124, 124, 1) 100%);
 }
 
 
 
-#google-login img , #git-login img{
-    height:20px;
-    width:20px;
+#google-login img,
+#git-login img {
+    height: 20px;
+    width: 20px;
     margin: 0 10px;
 
 }
 
 
-@media screen and (max-width:1000px){
-    .sec-2 , .sec-4{
+@media screen and (max-width:1000px) {
+
+    header {
+        margin-top: 1vh;
+    }
+
+    .sec-2,
+    .sec-4 {
         flex-wrap: wrap;
     }
 
-    .sec-3 , .sec-5{
+    .sec-3,
+    .sec-5 {
         flex-wrap: wrap-reverse;
     }
-    
-    .img-box{
+
+    .img-box {
         width: 90%;
         display: flex;
         justify-content: center;
         align-items: center;
     }
 
-    .img-box img{
+    .img-box img {
         aspect-ratio: 1 / 1;
         width: 90%;
         height: auto;
@@ -549,12 +560,12 @@ span{
         padding: 20px 0;
     }
 
-    .text-box p{
+    .text-box p {
         text-align: center;
         font-size: 1rem;
     }
 
-    .nav ul{
+    .nav ul {
         display: none;
     }
 }
