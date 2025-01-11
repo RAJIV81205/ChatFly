@@ -48,7 +48,7 @@ async function verifyToken() {
             window.location.href="login.html"
         }
         else {
-            updateMessages(data.result.id);
+            //updateMessages(data.result.id);
 
         }
 
@@ -252,6 +252,7 @@ async function loginUser() {
         if (response.ok) {
             console.log(data)
             localStorage.setItem('token', data.token)
+            localStorage.setItem('name',data.user.name)
             window.location.href = 'dashboard.html'
         }
         else {
@@ -263,3 +264,47 @@ async function loginUser() {
     }
 
 }
+
+
+
+const socket = io('https://chatfly.onrender.com'); // Replace PORT with your backend port
+
+const allMessages = document.getElementById('all-message');
+const messageInput = document.getElementById('message');
+const sendMessageButton = document.getElementById('send-message');
+
+// Load existing messages
+socket.on('load-messages', (messages) => {
+  messages.forEach((message) => displayMessage(message));
+});
+
+// Receive new messages
+socket.on('receive-message', (messageData) => {
+  displayMessage(messageData);
+});
+
+// Send message
+sendMessageButton.addEventListener('click', () => {
+  const messageText = messageInput.value.trim();
+  if (messageText === '') return;
+
+  const messageData = {
+    sender: 'You', // Replace with dynamic username
+    text: messageText,
+    time: new Date().toLocaleTimeString(),
+  };
+
+  socket.emit('send-message', messageData); // Send message to server
+  displayMessage({ ...messageData, sender: 'Me' }); // Display on sender's screen
+  messageInput.value = '';
+});
+
+// Display message in the chat box
+function displayMessage(message) {
+  const messageDiv = document.createElement('div');
+  messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left');
+  messageDiv.innerHTML = `<p><strong>${message.sender}:</strong> ${message.text}</p>`;
+  allMessages.appendChild(messageDiv);
+  allMessages.scrollTop = allMessages.scrollHeight; // Scroll to the latest message
+}
+

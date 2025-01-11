@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 </head>
 
 <body>
@@ -13,12 +14,13 @@
         <div class="blob"></div>
     </div>
     <div class="main-dashboard-section">
+
         <div class="people-container"></div>
         <div class="message-container">
             <div class="user-detail-container">
                 <div class="user-detail">
-                <img src="img/boy.png" alt="dp">
-                <p>John Doe</p>
+                    <img src="img/boy.png" alt="dp">
+                    <p>John Doe</p>
                 </div>
                 <div class="extra-icons">
                     <img src="img/zoom.png" alt="vc">
@@ -28,18 +30,19 @@
                 </div>
             </div>
             <div id="all-message">
-                <div class="message left"><p>Hello</p></div>
-                <div class="message right"><p>Hello</p></div>
-                <div class="message left"><p>Hello</p></div>
-                <div class="message left"><p>Hello</p></div>
-                <div class="message right"><p>Hello</p></div>
-                <div class="message right"><p>Hello</p></div>
-                <div class="message left"><p>Hello</p></div>
-                <div class="message right"><p>Hello</p></div>
-                <div class="message left"><p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Provident et laudantium atque velit. Cum magnam quae, voluptatem in nam dolorum eius assumenda facere sapiente, recusandae eligendi neque, veniam quisquam modi.</p></div>
+                
+                <div class="message left">
+                    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Provident et laudantium atque velit. Cum
+                        magnam quae, voluptatem in nam dolorum eius assumenda facere sapiente, recusandae eligendi
+                        neque, veniam quisquam modi.</p>
+                </div>
 
             </div>
-            <div class="input-container"></div>
+            <div class="input-container">
+                <img src="img/attach-file.png" alt="file">
+                <input type="text" placeholder="Type a message" id="message">
+                <button id="send-message">Send</button>
+            </div>
         </div>
 
 
@@ -55,6 +58,7 @@
 
 
 
+
     </div>
 
 
@@ -62,7 +66,9 @@
 
 
 
+    
     <script src="script.js"></script>
+    
 
 </body>
 
