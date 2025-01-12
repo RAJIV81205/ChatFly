@@ -272,6 +272,11 @@ const allMessages = document.getElementById('all-message');
 const messageInput = document.getElementById('message');
 const sendMessageButton = document.getElementById('send-message');
 const sender = localStorage.getItem('name');
+const hours = String(new Date().getHours()).padStart(2, "0");
+const minutes = String(new Date().getMinutes()).padStart(2, "0");
+const time = `${hours} : ${minutes}`;
+
+
 
 
 
@@ -288,14 +293,14 @@ socket.on('receive-message', (messageData) => {
 });
 
 
-sendMessageButton.addEventListener('click', () => {
+sendMessageButton.addEventListener('click', ()=> {
     const messageText = messageInput.value.trim();
     if (messageText === '') return;
 
     const messageData = {
         sender: sender, // Dynamic username from localStorage
         text: messageText,
-        time: `${new Date().getHours()} : ${new Date().getMinutes()} `,
+        time: `${hours} : ${minutes}`,
     };
 
     socket.emit('send-message', messageData); // Send message to the server

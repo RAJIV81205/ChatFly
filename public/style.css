@@ -598,8 +598,8 @@ span {
 }
 
 .people-container {
-    background-color: #2D2D2D; /* Dark background */
-    color: #FFFFFF; /* Text color */
+    background-color: #2D2D2D; 
+    color: #FFFFFF;
     border-radius: 10px;
     padding: 20px;
     width: 30%;
@@ -616,7 +616,7 @@ span {
   
   .heading {
     text-align: center;
-    color: #00FF7F; /* Green color for heading */
+    color: #00FF7F; 
     font-size: 20px;
     font-weight: bold;
     margin-bottom: 20px;
@@ -626,7 +626,7 @@ span {
     width: 95%;
     display: flex;
     align-items: center;
-    background-color: #E6E6E6; /* Light background for user cards */
+    background-color: #E6E6E6; 
     margin-bottom: 15px;
     border-radius: 8px;
     padding: 10px;
@@ -634,16 +634,16 @@ span {
   }
   
   .user:hover {
-    transform: scale(1.05); /* Slight zoom on hover */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* Highlight on hover */
+    transform: scale(1.05); 
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   }
   
   .dp img {
     width: 50px;
     height: 50px;
-    border-radius: 50%; /* Circular profile image */
+    border-radius: 50%; 
     margin-right: 15px;
-    border: 2px solid #00FF7F; /* Green border for profile image */
+    border: 2px solid #00FF7F; 
   }
   
   .user-info {
@@ -655,17 +655,17 @@ span {
     margin: 0;
     font-size: 16px;
     font-weight: bold;
-    color: #333333; /* Darker text for username */
+    color: #333333;
   }
   
   .status {
     margin: 0;
     font-size: 14px;
-    color: #00FF7F; /* Green for 'Online' */
+    color: #00FF7F; 
   }
   
   .status.offline {
-    color: #FF6B6B; /* Red for 'Offline' */
+    color: #FF6B6B;
   }
   
 
@@ -679,7 +679,7 @@ span {
 }
 
 .user-detail-container {
-    margin-top: 10px;
+    margin: calc(100% - 99%);
     width: calc(95% - 40px);
     display: flex;
     justify-content: space-between;
@@ -687,7 +687,7 @@ span {
     background-color: #1E1E1E; 
     padding: 10px 20px;
     border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); 
   }
   
   .user-detail {
@@ -698,90 +698,109 @@ span {
   .user-detail img {
     width: 40px;
     height: 40px;
-    border-radius: 50%; /* Circular profile image */
+    border-radius: 50%; 
     margin-right: 10px;
   }
   
   .user-detail p {
     margin: 0;
-    color: #00FFD1; /* Vibrant text color */
+    color: #00FFD1; 
     font-size: 18px;
     font-weight: bold;
   }
   
   .extra-icons {
     display: flex;
-    gap: 15px; /* Space between icons */
+    gap: 15px; 
   }
   
   .extra-icons img {
     width: 24px;
     height: 24px;
     cursor: pointer;
-    filter: invert(90%); /* Makes icons white */
+    filter: invert(90%); 
     transition: transform 0.2s, filter 0.3s;
   }
   
   .extra-icons img:hover {
-    transform: scale(1.2); /* Slight zoom on hover */
-    filter: invert(60%); /* Slightly less white on hover */
+    transform: scale(1.2); 
+    filter: invert(60%);
   }
   
 
+
 #all-message {
-    width: 100%;
-    height: 80vh;
-    flex-direction: column;
-    background-image: url(img/output-onlinepngtools\ \(2\).png);
+    width: calc(100% - 40px);
+    height: 100%;
     overflow-y: scroll;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f8;
+    padding: 20px;
+    border-radius: 10px;
 }
 
-.message {
+/* Left Message (Received) Styling */
+.message.left {
     display: flex;
     flex-direction: column;
-    flex-wrap: wrap;
-    width: fit-content;
-    max-width: 40%;
-    padding: 10px;
-    height: fit-content;
-    background-color: #f0f2f1;
-    margin: 5px;
-    border-radius: 2px;
-
+    align-items: flex-start;
+    margin-bottom: 15px;
 }
 
+.message.left p {
+    background-color: #ffffff;
+    padding: 10px 15px;
+    border-radius: 10px 10px 10px 2px;
+    color: #333;
+    max-width: 70%;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
 
-.message p {
+.message.left .time {
+    font-size: 12px;
+    color: gray;
+    margin-top: 5px;
+}
+
+/* Right Message (Sent) Styling */
+.message.right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-bottom: 15px;
+}
+
+.message.right p {
+    background-color: #d1e7dd;
+    padding: 10px 15px;
+    border-radius: 10px 10px 2px 10px;
+    color: #0f5132;
+    max-width: 70%;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
     word-wrap: break-word;
-    overflow-wrap: break-word;
-    white-space: normal;
-    max-width: 100%;
 }
 
-.time {
-    width: 100%;
-    text-align: right;
-    font-size: 0.8rem;
+.message.right .time {
+    font-size: 12px;
+    color: gray;
+    margin-top: 5px;
 }
 
-.right {
-    clear: both;
-    float: right;
-
-}
-
-.left {
-    clear: both;
-    float: left;
-}
 
 .input-container {
+    margin: calc(100% - 99%);
+    width: calc(95% - 20px);
     display: flex;
     align-items: center;
-    background-color: #1E1E1E; /* Dark background */
+    background-color: #1E1E1E; 
     padding: 10px;
     border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
   
   .input-container img {
@@ -789,12 +808,12 @@ span {
     height: 24px;
     margin-right: 10px;
     cursor: pointer;
-    filter: invert(70%); /* Lightens the attach icon */
+    filter: invert(70%); 
     transition: transform 0.2s;
   }
   
   .input-container img:hover {
-    transform: scale(1.1); /* Slight zoom on hover */
+    transform: scale(1.1); 
   }
   
   .input-container input[type="text"] {
@@ -802,20 +821,20 @@ span {
     padding: 10px;
     border: none;
     border-radius: 5px;
-    background-color: #2C2C2C; /* Slightly lighter than container */
+    background-color: #2C2C2C; 
     color: #FFFFFF;
     font-size: 16px;
-    outline: none; /* Remove border on focus */
+    outline: none; 
   }
   
   .input-container input[type="text"]::placeholder {
-    color: #B0B0B0; /* Subtle placeholder color */
+    color: #B0B0B0;
   }
   
   .input-container button {
     margin-left: 10px;
     padding: 10px 20px;
-    background-color: #3B82F6; /* Bright blue for the button */
+    background-color: #3B82F6;
     color: #FFFFFF;
     border: none;
     border-radius: 5px;
@@ -825,11 +844,11 @@ span {
   }
   
   .input-container button:hover {
-    background-color: #2563EB; /* Darker blue on hover */
-    transform: scale(1.05); /* Slight zoom on hover */
+    background-color: #2563EB;
+    transform: scale(1.05);
   }
   
   .input-container button:active {
-    transform: scale(0.95); /* Slight shrink on click */
+    transform: scale(0.95); 
   }
   
