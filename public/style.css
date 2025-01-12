@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo+Play:wght@200..1000&family=Kadwa:wght@400;700&family=Merienda&family=Salsa&family=Spline+Sans+Mono:ital,wght@0,300..700;1,300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
 
 
 * {
@@ -268,12 +269,13 @@ header {
 
 }
 
+.text-box strong,
 strong {
     font-weight: bold;
     letter-spacing: 1px;
 }
 
-strong::before {
+.text-box strong::before {
     content: '• ';
 }
 
@@ -590,15 +592,63 @@ span {
     flex-direction: row;
     align-items: center;
     overflow: hidden;
+    
 }
 
 .people-container {
     height: 100%;
     width: 30%;
-    background-color: #363636;
+    background-color: #2F3640;
     overflow-y: scroll;
     scrollbar-width: 0px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px 0;
 
+}
+
+.dp {
+    padding: 0 10px ;
+    height: 70%;
+    width: 20%;
+}
+
+.dp img {
+    height: 100%;
+    aspect-ratio: 1/1;
+}
+
+.heading {
+    width: 100%;
+    text-align: center;
+    color: #2DFF11;
+    padding: 10px 0;
+    font-family: "Noto Sans", serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+    font-variation-settings:
+        "wdth" 100;
+}
+
+.user {
+    width: 95%;
+    height: 80px;
+    background-color: gainsboro;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    border-radius: 8px;
+    border: 1px solid white;
+    margin: 5px 0;
+    
+}
+
+
+.status {
+    color: #10B981;
 }
 
 .message-container {
@@ -627,6 +677,7 @@ span {
     justify-content: flex-start;
     align-items: center;
     height: 100%;
+    
 
 }
 
@@ -643,6 +694,12 @@ span {
     letter-spacing: 1px;
     word-spacing: 2px;
     flex-wrap: nowrap;
+    font-family: "Noto Sans", serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+    font-variation-settings:
+        "wdth" 100;
 }
 
 
@@ -696,6 +753,7 @@ span {
 .time {
     width: 100%;
     text-align: right;
+    font-size: 0.8rem;
 }
 
 .right {

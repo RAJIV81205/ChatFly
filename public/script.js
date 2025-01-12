@@ -273,19 +273,21 @@ const messageInput = document.getElementById('message');
 const sendMessageButton = document.getElementById('send-message');
 const sender = localStorage.getItem('name');
 
-// Load existing messages
+
+
+
 socket.on('load-messages', (messages) => {
     messages.forEach((message) => displayMessage(message));
 });
 
-// Receive new messages (from other clients)
+
 socket.on('receive-message', (messageData) => {
     if (messageData.sender !== sender) {
         displayMessage(messageData);
     }
 });
 
-// Send message
+
 sendMessageButton.addEventListener('click', () => {
     const messageText = messageInput.value.trim();
     if (messageText === '') return;
@@ -293,7 +295,7 @@ sendMessageButton.addEventListener('click', () => {
     const messageData = {
         sender: sender, // Dynamic username from localStorage
         text: messageText,
-        time: new Date().toLocaleTimeString(),
+        time: `${new Date().getHours()} : ${new Date().getMinutes()} `,
     };
 
     socket.emit('send-message', messageData); // Send message to the server
