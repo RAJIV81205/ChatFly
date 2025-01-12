@@ -573,7 +573,8 @@ span {
     .nav ul {
         display: none;
     }
-    .message p{
+
+    .message p {
         font-size: 0.9rem;
         text-wrap: balance;
     }
@@ -601,6 +602,7 @@ span {
 }
 
 .message-container {
+    width: 100%;
     height: 100%;
     background-color: whitesmoke;
     display: flex;
@@ -664,13 +666,15 @@ span {
 #all-message {
     width: 100%;
     height: 80vh;
-
     flex-direction: column;
     background-image: url(img/output-onlinepngtools\ \(2\).png);
     overflow-y: scroll;
 }
 
 .message {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
     width: fit-content;
     max-width: 40%;
     padding: 10px;
@@ -678,6 +682,20 @@ span {
     background-color: #f0f2f1;
     margin: 5px;
     border-radius: 2px;
+
+}
+
+
+.message p {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 100%;
+}
+
+.time {
+    width: 100%;
+    text-align: right;
 }
 
 .right {

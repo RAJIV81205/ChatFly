@@ -7,7 +7,20 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 
 
+
 const app = express();
+
+const http = require('http');
+const server = http.createServer(app);
+
+
+
+const io = require('socket.io')(server, {
+    cors: {
+        origin: ["http://127.0.0.1:5500" ,"https://chatfly.onrender.com"] , // Replace with your frontend's URL
+        methods: ["GET", "POST"]
+    }
+});
 
 
 dotenv.config();
@@ -16,12 +29,13 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join("public")));
 
-// Environment variables
+
 const PORT = process.env.PORT || 5000;
 const URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// MongoDB connection
+
+
 mongoose.connect(URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -29,7 +43,7 @@ mongoose.connect(URI, {
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.error('Error connecting to MongoDB:', err));
 
-// User Schema
+
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, trim: true },
     mobile: { type: String, default: '' },
@@ -40,7 +54,9 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// Signup API
+
+
+
 app.post('/signup', async (req, res) => {
     try {
         const { username, mobile, email, password, time } = req.body;
@@ -73,7 +89,9 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-// Login API
+
+
+
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -109,7 +127,10 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Token Verification API
+
+
+
+
 app.post('/verify', (req, res) => {
     const { token } = req.body;
 
@@ -131,39 +152,28 @@ app.post('/verify', (req, res) => {
     }
 });
 
-const chatMessages = []; // Temporary storage for messages (No DB usage)
-
-// Socket.io setup
-const http = require('http');
-const server = http.createServer(app);
-const { Server } = require('socket.io');
+const chatMessages = []; 
 
 
-const io = require('socket.io')(server, {
-    cors: {
-        origin: ["http://127.0.0.1:5500" ,"https://chatfly.onrender.com"] , // Replace with your frontend's URL
-        methods: ["GET", "POST"]
-    }
-});
 
-// Handle socket connection
+
 io.on('connection', (socket) => {
     console.log('A user connected');
 
 
-    // Receive and broadcast messages
+    
     socket.on('send-message', (messageData) => {
-        chatMessages.push(messageData); // Store message temporarily
-        io.emit('receive-message', messageData); // Broadcast to all users
+        chatMessages.push(messageData); 
+        io.emit('receive-message', messageData); 
     });
 
-    // Handle disconnection
+    
     socket.on('disconnect', () => {
         console.log('A user disconnected');
     });
 });
 
-// Start server with Socket.io
+
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
