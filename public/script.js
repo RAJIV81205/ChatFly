@@ -33,6 +33,7 @@ async function verifyToken() {
     if (response.ok) {
         console.log(data.message);
         console.log(data.result.id)
+        localStorage.setItem("stoken", data.result.id)
 
         const at = new Date(data.result.iat * 1000);
         const exp = new Date(data.result.exp * 1000);
@@ -265,55 +266,111 @@ async function loginUser() {
 
 }
 
-
-const socket = io('https://chatfly.onrender.com');
-
-const allMessages = document.getElementById('all-message');
-const messageInput = document.getElementById('message');
-const sendMessageButton = document.getElementById('send-message');
-const sender = localStorage.getItem('name');
+const socket = io('https://chatfly.onrender.com'); // Connect to your server
+const stoken = localStorage.getItem('stoken'); // Sender's token
+const allMessages = document.getElementById('all-message'); // Chat window
+const messageInput = document.getElementById('message'); // Message input field
+const sendMessageButton = document.getElementById('send-message'); // Send button
+let sender = localStorage.getItem('name').split(" ")[0]; // Extract sender's name
 const hours = String(new Date().getHours()).padStart(2, "0");
 const minutes = String(new Date().getMinutes()).padStart(2, "0");
 const time = `${hours} : ${minutes}`;
+let rtoken = null; // Selected receiver token
 
-
-
-
-
-
-socket.on('load-messages', (messages) => {
-    messages.forEach((message) => displayMessage(message));
-});
-
-
+// Listen for incoming messages
 socket.on('receive-message', (messageData) => {
-    if (messageData.sender !== sender) {
+    // Only display messages sent to this user by the current receiver
+    if (messageData.rtoken === stoken && messageData.stoken === rtoken) {
         displayMessage(messageData);
     }
 });
 
-
-sendMessageButton.addEventListener('click', ()=> {
+// Send a message
+sendMessageButton.addEventListener('click', () => {
     const messageText = messageInput.value.trim();
-    if (messageText === '') return;
+    if (messageText === '' || !rtoken) return; // Ensure message text and receiver exist
 
     const messageData = {
-        sender: sender, // Dynamic username from localStorage
+        stoken: stoken, // Sender's token
+        rtoken: rtoken, // Receiver's token
+        sender: sender, // Sender's name
         text: messageText,
-        time: `${hours} : ${minutes}`,
+        time: time, // Current time
     };
 
-    socket.emit('send-message', messageData); // Send message to the server
-    displayMessage({ ...messageData, sender: 'Me' }); // Show message instantly on the sender's screen
+    // Emit the message to the server
+    socket.emit('send-message', messageData);
+    displayMessage({ ...messageData, sender: 'Me' }); // Display message on sender's screen
     messageInput.value = ''; // Clear the input field
 });
 
-// Display message in the chat box
+// Display a message in the chat window
 function displayMessage(message) {
     const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left');
+    messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left'); // Align message
     messageDiv.innerHTML = `<p><strong>${message.sender}:</strong> ${message.text}</p>
                              <div class="time">${message.time}</div>`;
     allMessages.appendChild(messageDiv);
     allMessages.scrollTop = allMessages.scrollHeight; // Scroll to the latest message
 }
+
+// Set the current receiver
+function setReceiver(newReceiverToken) {
+    rtoken = newReceiverToken; // Update receiver token
+    loadChatHistory(rtoken); // Load chat history with this receiver
+}
+
+// Load chat history with the selected receiver
+async function loadChatHistory(receiverToken) {
+    try {
+        // Fetch chat history from the backend
+        const response = await fetch('https://chatfly.onrender.com/load-history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user1: stoken,
+                user2: receiverToken,
+            }),
+        });
+
+        if (!response.ok) {
+            console.error('Failed to fetch chat history');
+            return;
+        }
+
+        const chatHistory = await response.json();
+        allMessages.innerHTML = ''; // Clear the chat window
+        chatHistory.messages.forEach(message => {
+            console.log(message)
+            if (message.senderId === stoken) {
+                displayMessage({...message , sender:'Me'})
+
+
+            }else{
+                displayMessage(message)
+            }
+        })
+    }catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+    
+
+// Add event listeners to user list items for selecting a receiver
+try {
+
+            document.querySelectorAll('.user').forEach(user => {
+                user.addEventListener('click', (event) => {
+                    const userId = event.currentTarget.dataset.userid;
+                    document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
+                    setReceiver(userId); // Set the selected user's token
+                    
+
+                });
+            })
+
+        } catch (error) {
+            console.error("Error attaching click event to user list:", error);
+        }

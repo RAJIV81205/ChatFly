@@ -631,6 +631,7 @@ span {
     border-radius: 8px;
     padding: 10px;
     transition: transform 0.2s, box-shadow 0.3s;
+    cursor: pointer;
   }
   
   .user:hover {

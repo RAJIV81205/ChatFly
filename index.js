@@ -17,7 +17,7 @@ const server = http.createServer(app);
 
 const io = require('socket.io')(server, {
     cors: {
-        origin: ["http://127.0.0.1:5500" ,"https://chatfly.onrender.com"] , // Replace with your frontend's URL
+        origin: ["http://127.0.0.1:5500", "https://chatfly.onrender.com"], // Replace with your frontend's URL
         methods: ["GET", "POST"]
     }
 });
@@ -53,6 +53,7 @@ const userSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
+
 
 
 
@@ -152,26 +153,83 @@ app.post('/verify', (req, res) => {
     }
 });
 
-const chatMessages = []; 
 
+const MessageSchema = new mongoose.Schema({
+    sender: { type: String, required: true }, // Sender's name
+    senderId: { type: String, required: true }, // Sender's unique ID
+    receiverId: { type: String, required: true }, // Receiver's unique ID
+    text: { type: String, required: true }, // Message text
+    time: { type: String, required: true }, // Human-readable time
+    timestamp: { type: Date, default: Date.now }, // Timestamp for sorting
+});
 
+const History = mongoose.model('Message', MessageSchema);
 
+// Socket.IO Logic
+const onlineUsers = new Map(); // Track online users by socket ID
 
 io.on('connection', (socket) => {
-    console.log('A user connected');
-    io.emit('online',)
+    console.log('A user connected:', socket.id);
 
-
-    
-    socket.on('send-message', (messageData) => {
-        chatMessages.push(messageData); 
-        io.emit('receive-message', messageData); 
+    // Handle user coming online
+    socket.on('user-online', (userId) => {
+        onlineUsers.set(socket.id, userId); // Map socket ID to user ID
+        io.emit('online-users', Array.from(onlineUsers.values())); // Notify all clients of online users
     });
 
-    
+    // Handle message sending
+    socket.on('send-message', async (messageData) => {
+        try {
+            // Save the message to the database
+            await saveMessages(messageData);
+
+            // Emit the message to the receiver
+            io.emit('receive-message', messageData);
+        } catch (error) {
+            console.error('Error saving message:', error);
+        }
+    });
+
+    // Handle user disconnection
     socket.on('disconnect', () => {
-        console.log('A user disconnected');
+        console.log('A user disconnected:', socket.id);
+        onlineUsers.delete(socket.id); // Remove the user from online list
+        io.emit('online-users', Array.from(onlineUsers.values())); // Update online users
     });
+});
+
+// Save messages to MongoDB
+async function saveMessages(messageData) {
+    try {
+        const newMessage = new History({
+            sender: messageData.sender,
+            senderId: messageData.stoken,
+            receiverId: messageData.rtoken,
+            text: messageData.text,
+            time: messageData.time,
+        });
+        await newMessage.save(); // Save to database
+        console.log('Message saved:', newMessage);
+    } catch (error) {
+        console.error('Error saving message to database:', error);
+    }
+}
+
+// Load chat history between two users
+app.post('/load-history', async (req, res) => {
+    try {
+        const { user1, user2 } = req.body; // Extract user IDs from request body
+        const messages = await History.find({
+            $or: [
+                { senderId: user1, receiverId: user2 },
+                { senderId: user2, receiverId: user1 },
+            ],
+        }).sort({ timestamp: 1 }); // Sort messages by timestamp (oldest first)
+        res.json({ messages }); // Return messages as JSON
+    } catch (error) {
+        console.error('Error loading chat history:', error);
+        res.status(500).json({ error: 'Failed to load chat history' });
+    }
 });
 
 
