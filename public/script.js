@@ -3,13 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loader.style.display = "none"
     try {
         if (window.location.pathname.split("/").pop() == "dashboard.html" || window.location.pathname.split("/").pop() == "dashboard") {
-            verifyToken()
+            verifyToken();
+            loadUsers()
         }
 
     } catch (error) {
         console.error(error)
 
     }
+
 })
 
 
@@ -266,64 +268,84 @@ async function loginUser() {
 
 }
 
-const socket = io('https://chatfly.onrender.com'); // Connect to your server
-const stoken = localStorage.getItem('stoken'); // Sender's token
-const allMessages = document.getElementById('all-message'); // Chat window
-const messageInput = document.getElementById('message'); // Message input field
-const sendMessageButton = document.getElementById('send-message'); // Send button
-let sender = localStorage.getItem('name').split(" ")[0]; // Extract sender's name
-const hours = String(new Date().getHours()).padStart(2, "0");
-const minutes = String(new Date().getMinutes()).padStart(2, "0");
-const time = `${hours} : ${minutes}`;
-let rtoken = null; // Selected receiver token
+const socket = io('https://chatfly.onrender.com')
+const stoken = localStorage.getItem('stoken'); 
+const allMessages = document.getElementById('all-message'); 
+const messageInput = document.getElementById('message'); 
+const sendMessageButton = document.getElementById('send-message'); 
+let sender = localStorage.getItem('name').split(" ")[0]; 
 
-// Listen for incoming messages
+let rtoken = null; 
+socket.emit('user-join', stoken);
+socket.on('update-users', (activeUsers) => {
+    const userElements = document.querySelectorAll('.user');
+    
+    userElements.forEach(userElement => {
+        const userId = userElement.dataset.userid;
+
+        if (activeUsers.includes(userId)) {
+            // If user is active, mark them online
+            const statusElement = userElement.querySelector('.status');
+            statusElement.textContent = 'Online';
+            statusElement.classList.remove('offline');
+        } else {
+            // If user is not active, mark them offline
+            const statusElement = userElement.querySelector('.status');
+            statusElement.textContent = 'Offline';
+            statusElement.classList.remove('online');
+            statusElement.classList.add('offline');
+        }
+    });
+});
+
+
 socket.on('receive-message', (messageData) => {
-    // Only display messages sent to this user by the current receiver
     if (messageData.rtoken === stoken && messageData.stoken === rtoken) {
         displayMessage(messageData);
     }
 });
 
-// Send a message
+
 sendMessageButton.addEventListener('click', () => {
+    const hours = String(new Date().getHours()).padStart(2, "0");
+    const minutes = String(new Date().getMinutes()).padStart(2, "0");
+    const time = `${hours} : ${minutes}`;
     const messageText = messageInput.value.trim();
-    if (messageText === '' || !rtoken) return; // Ensure message text and receiver exist
+    if (messageText === '' || !rtoken) return; 
 
     const messageData = {
-        stoken: stoken, // Sender's token
-        rtoken: rtoken, // Receiver's token
-        sender: sender, // Sender's name
+        stoken: stoken, 
+        rtoken: rtoken, 
+        sender: sender, 
         text: messageText,
-        time: time, // Current time
+        time: time, 
     };
 
-    // Emit the message to the server
+ 
     socket.emit('send-message', messageData);
-    displayMessage({ ...messageData, sender: 'Me' }); // Display message on sender's screen
-    messageInput.value = ''; // Clear the input field
+    displayMessage({ ...messageData, sender: 'Me' }); 
+    messageInput.value = ''; 
 });
 
-// Display a message in the chat window
+
 function displayMessage(message) {
     const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left'); // Align message
+    messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left'); 
     messageDiv.innerHTML = `<p><strong>${message.sender}:</strong> ${message.text}</p>
                              <div class="time">${message.time}</div>`;
     allMessages.appendChild(messageDiv);
-    allMessages.scrollTop = allMessages.scrollHeight; // Scroll to the latest message
+    allMessages.scrollTop = allMessages.scrollHeight; 
 }
 
-// Set the current receiver
+
 function setReceiver(newReceiverToken) {
-    rtoken = newReceiverToken; // Update receiver token
-    loadChatHistory(rtoken); // Load chat history with this receiver
+    rtoken = newReceiverToken; 
+    loadChatHistory(rtoken); 
 }
 
-// Load chat history with the selected receiver
+
 async function loadChatHistory(receiverToken) {
     try {
-        // Fetch chat history from the backend
         const response = await fetch('https://chatfly.onrender.com/load-history', {
             method: 'POST',
             headers: {
@@ -341,36 +363,76 @@ async function loadChatHistory(receiverToken) {
         }
 
         const chatHistory = await response.json();
-        allMessages.innerHTML = ''; // Clear the chat window
+        allMessages.innerHTML = ''; 
         chatHistory.messages.forEach(message => {
             console.log(message)
             if (message.senderId === stoken) {
-                displayMessage({...message , sender:'Me'})
+                displayMessage({ ...message, sender: 'Me' })
 
 
-            }else{
+            } else {
                 displayMessage(message)
             }
         })
-    }catch (error) {
-                console.error('Error loading chat history:', error);
-            }
-        }
-    
+    } catch (error) {
+        console.error('Error loading chat history:', error);
+    }
+}
 
-// Add event listeners to user list items for selecting a receiver
-try {
+
+
+
+
+
+
+async function loadUsers() {
+    try {
+        const response = await fetch('https://chatfly.onrender.com/users');
+        const users = await response.json(); 
+
+        const userList = document.querySelector('.people-container');
+        userList.innerHTML = `<div class="heading">All Chats</div>`; 
+
+        
+        users.forEach(user => {
+            const userDiv = document.createElement('div');
+            userDiv.classList.add('user'); 
+            userDiv.setAttribute('data-userId', user._id); 
+            userDiv.setAttribute('data-username', user.username); 
+
+            userDiv.innerHTML = `
+                <div class="dp">
+                    <img src="img/boy.png" alt="user">
+                </div>
+                <div class="user-info">
+                    <p class="username"><strong>${user.username}</strong></p>
+                    <p class="status">Don't Know</p>
+                </div>
+            `;
+            userList.appendChild(userDiv); 
 
             document.querySelectorAll('.user').forEach(user => {
                 user.addEventListener('click', (event) => {
                     const userId = event.currentTarget.dataset.userid;
                     document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
-                    setReceiver(userId); // Set the selected user's token
-                    
+                    setReceiver(userId); 
+
 
                 });
             })
 
-        } catch (error) {
-            console.error("Error attaching click event to user list:", error);
-        }
+            
+
+
+
+
+
+        });
+    } catch (error) {
+        console.error('Failed to load users:', error);
+    }
+}
+
+
+
+
