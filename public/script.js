@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         if (window.location.pathname.split("/").pop() == "dashboard.html" || window.location.pathname.split("/").pop() == "dashboard") {
             verifyToken();
-            loadUsers()
+            loadUsers();
+
         }
 
     } catch (error) {
@@ -23,7 +24,7 @@ async function verifyToken() {
         window.location.href = "login.html"
         return
     }
-    const response = await fetch("http://localhost:3000/verify", {
+    const response = await fetch("https://chatfly.onrender.com/verify", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json',
@@ -47,13 +48,10 @@ async function verifyToken() {
         console.log(exptime, current)
 
         if (exptime < current) {
-            localStorage.removeItem('token')
+            localStorage.clear()
             window.location.href = "login.html"
         }
-        else {
-            //updateMessages(data.result.id);
 
-        }
 
     }
 }
@@ -164,7 +162,7 @@ async function signupUser() {
     }
 
     try {
-        const response = await fetch('http://localhost:3000/signup', {
+        const response = await fetch('https://chatfly.onrender.com/signup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -209,7 +207,7 @@ async function signupUser() {
             console.error("Error:", errorData.message || "Something went wrong.");
             mess = "Error:", errorData.message || "Something went wrong."
             notify(mess);
-            
+
         }
     }
 
@@ -243,7 +241,7 @@ async function getDisplayName(gender) {
 
 
 
-function notify(mess){
+function notify(mess) {
     const Toast = Swal.mixin({
         toast: true,
         position: "top-end",
@@ -336,7 +334,7 @@ async function loginUser() {
     }
 
     try {
-        const response = await fetch('http://localhost:3000/login', {
+        const response = await fetch('https://chatfly.onrender.com/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -353,7 +351,7 @@ async function loginUser() {
         if (response.ok) {
             console.log(data)
             localStorage.setItem('token', data.token)
-            localStorage.setItem('name', data.user.name)
+            localStorage.setItem('name', data.user.displayName)
 
 
             Swal.fire({
@@ -374,7 +372,8 @@ async function loginUser() {
             }).then((result) => {
 
                 if (result.isConfirmed || result.dismiss === Swal.DismissReason.timer) {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = "dashboard.html";
+                    
                 }
             });
 
@@ -393,15 +392,19 @@ async function loginUser() {
 }
 
 
-const socket = io('http://localhost:3000')
+
+const socket = io('https://chatfly.onrender.com');
 const stoken = localStorage.getItem('stoken');
+socket.emit('user-join', stoken);
+
+
 const allMessages = document.getElementById('all-message');
 const messageInput = document.getElementById('message');
 const sendMessageButton = document.getElementById('send-message');
 let sender = localStorage.getItem('name').split(" ")[0];
 
 let rtoken = null;
-socket.emit('user-join', stoken);
+
 setInterval(() => {
     socket.emit('check-status');
 }, 1000);
@@ -474,7 +477,7 @@ function setReceiver(newReceiverToken) {
 
 async function loadChatHistory(receiverToken) {
     try {
-        const response = await fetch('http://localhost:3000/load-history', {
+        const response = await fetch('https://chatfly.onrender.com/load-history', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -493,7 +496,6 @@ async function loadChatHistory(receiverToken) {
         const chatHistory = await response.json();
         allMessages.innerHTML = '';
         chatHistory.messages.forEach(message => {
-            console.log(message)
             if (message.senderId === stoken) {
                 displayMessage({ ...message, sender: 'Me' })
 
@@ -515,7 +517,7 @@ async function loadChatHistory(receiverToken) {
 
 async function loadUsers() {
     try {
-        const response = await fetch('http://localhost:3000/users');
+        const response = await fetch('https://chatfly.onrender.com/users');
         const users = await response.json();
 
         const userList = document.querySelector('.people-container');
@@ -526,14 +528,14 @@ async function loadUsers() {
             const userDiv = document.createElement('div');
             userDiv.classList.add('user');
             userDiv.setAttribute('data-userId', user._id);
-            userDiv.setAttribute('data-username', user.username);
+            userDiv.setAttribute('data-username', user.displayName);
 
             userDiv.innerHTML = `
                 <div class="dp">
                     <img src="img/boy.png" alt="user">
                 </div>
                 <div class="user-info">
-                    <p class="username"><strong>${user.username}</strong></p>
+                    <p class="username"><strong>${user.displayName}</strong></p>
                     <p class="status">Don't Know</p>
                 </div>
             `;

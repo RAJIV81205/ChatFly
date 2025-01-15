@@ -5,13 +5,13 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const CryptoJS = require('crypto-js');
 
 
 
 const app = express();
 
 const http = require('http');
-const { type } = require('os');
 const server = http.createServer(app);
 
 
@@ -24,6 +24,8 @@ const io = require('socket.io')(server, {
 });
 
 
+
+
 dotenv.config();
 
 app.use(express.json());
@@ -34,6 +36,7 @@ app.use(express.static(path.join("public")));
 const PORT = process.env.PORT || 5000;
 const URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
+const secretKey = process.env.secretKey; 
 
 
 
@@ -48,8 +51,8 @@ mongoose.connect(URI, {
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, trim: true },
     mobile: { type: String, default: '' },
-    displayName : { type: String, required:true , unique:true},
-    gender:{type:String},
+    displayName: { type: String, required: true, unique: true },
+    gender: { type: String },
     email: { type: String, required: true, lowercase: true, unique: true },
     password: { type: String, required: true },
     time: { type: String },
@@ -58,12 +61,23 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 
 
+const MessageSchema = new mongoose.Schema({
+    sender: { type: String, required: true }, 
+    senderId: { type: String, required: true }, 
+    receiverId: { type: String, required: true }, 
+    text: { type: String, required: true }, 
+    time: { type: String, required: true }, 
+    timestamp: { type: Date, default: Date.now }, 
+});
+
+const History = mongoose.model('Message', MessageSchema);
+
 
 
 
 app.post('/signup', async (req, res) => {
     try {
-        const { username,displayName, gender, mobile, email, password, time } = req.body;
+        const { username, displayName, gender, mobile, email, password, time } = req.body;
 
         if (!username || !email || !password) {
             return res.status(400).json({ message: 'Username, email, and password are required' });
@@ -125,6 +139,7 @@ app.post('/login', async (req, res) => {
                 name: user.username,
                 mobile: user.mobile,
                 email: user.email,
+                displayName: user.displayName
             },
         });
     } catch (error) {
@@ -137,20 +152,28 @@ app.post('/login', async (req, res) => {
 
 
 
-app.post('/verify', (req, res) => {
+app.post('/verify', async (req, res) => {
     const { token } = req.body;
 
     if (!token) {
         return res.status(400).json({ message: 'Token is required' });
     }
 
+
     try {
-        const result = jwt.verify(token, JWT_SECRET);
+        const result = jwt.verify(token, JWT_SECRET); // Verify the token
+
+        const user = await User.findById(result.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
         res.status(200).json({
             message: 'Token verified successfully',
             result,
         });
     } catch (error) {
+        console.error("Error during token verification:", error.message);
         res.status(401).json({
             message: 'Invalid or expired token',
             error: error.message,
@@ -159,23 +182,21 @@ app.post('/verify', (req, res) => {
 });
 
 
-const MessageSchema = new mongoose.Schema({
-    sender: { type: String, required: true }, // Sender's name
-    senderId: { type: String, required: true }, // Sender's unique ID
-    receiverId: { type: String, required: true }, // Receiver's unique ID
-    text: { type: String, required: true }, // Message text
-    time: { type: String, required: true }, // Human-readable time
-    timestamp: { type: Date, default: Date.now }, // Timestamp for sorting
-});
 
-const History = mongoose.model('Message', MessageSchema);
 
 const activeUsers = {};
 
 io.on('connection', (socket) => {
     socket.on('user-join', (token) => {
-        activeUsers[socket.id] = token;
-        io.emit('update-users', Object.values(activeUsers));
+        const isTokenPresent = Object.values(activeUsers).includes(token);
+
+        if (!isTokenPresent) {
+            activeUsers[socket.id] = token;
+            io.emit('update-users', Object.values(activeUsers));
+        }
+        else {
+            io.emit('update-users', Object.values(activeUsers))
+        }
     });
 
     socket.on('send-message', async (messageData) => {
@@ -188,6 +209,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('check-status', () => {
+
         io.emit('update-users', Object.values(activeUsers));
     });
 
@@ -199,23 +221,25 @@ io.on('connection', (socket) => {
         }
     });
 
-    
+
 });
 
 
 
 
 async function saveMessages(messageData) {
+   
+    const encryptedMessage = encrypt(messageData.text);
+
     try {
         const newMessage = new History({
             sender: messageData.sender,
             senderId: messageData.stoken,
             receiverId: messageData.rtoken,
-            text: messageData.text,
+            text: encryptedMessage, 
             time: messageData.time,
         });
         await newMessage.save();
-        console.log('Message saved:', newMessage);
     } catch (error) {
         console.error('Error saving message to database:', error);
     }
@@ -231,7 +255,17 @@ app.post('/load-history', async (req, res) => {
                 { senderId: user2, receiverId: user1 },
             ],
         }).sort({ timestamp: 1 });
-        res.json({ messages });
+
+       
+        const decryptedMessages = messages.map((message) => ({
+            sender: message.sender,
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            text: decrypt(message.text), 
+            time: message.time,
+        }));
+
+        res.json({ messages: decryptedMessages });
     } catch (error) {
         console.error('Error loading chat history:', error);
         res.status(500).json({ error: 'Failed to load chat history' });
@@ -249,6 +283,16 @@ app.get('/users', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
+
+
+function encrypt(text) {
+    return CryptoJS.AES.encrypt(text, secretKey).toString();
+}
+
+function decrypt(cipherText) {
+    const bytes = CryptoJS.AES.decrypt(cipherText, secretKey);
+    return bytes.toString(CryptoJS.enc.Utf8);
+}
 
 
 server.listen(PORT, () => {
