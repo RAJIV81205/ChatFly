@@ -11,6 +11,7 @@ const path = require('path');
 const app = express();
 
 const http = require('http');
+const { type } = require('os');
 const server = http.createServer(app);
 
 
@@ -47,6 +48,8 @@ mongoose.connect(URI, {
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, trim: true },
     mobile: { type: String, default: '' },
+    displayName : { type: String, required:true , unique:true},
+    gender:{type:String},
     email: { type: String, required: true, lowercase: true, unique: true },
     password: { type: String, required: true },
     time: { type: String },
@@ -60,7 +63,7 @@ const User = mongoose.model('User', userSchema);
 
 app.post('/signup', async (req, res) => {
     try {
-        const { username, mobile, email, password, time } = req.body;
+        const { username,displayName, gender, mobile, email, password, time } = req.body;
 
         if (!username || !email || !password) {
             return res.status(400).json({ message: 'Username, email, and password are required' });
@@ -76,6 +79,8 @@ app.post('/signup', async (req, res) => {
 
         const newUser = new User({
             username,
+            displayName,
+            gender,
             mobile: mobile || '',
             email,
             password: hashedPassword,
@@ -182,6 +187,10 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('check-status', () => {
+        io.emit('update-users', Object.values(activeUsers));
+    });
+
     socket.on('disconnect', () => {
         const token = activeUsers[socket.id];
         if (token) {
@@ -189,7 +198,10 @@ io.on('connection', (socket) => {
             io.emit('update-users', Object.values(activeUsers));
         }
     });
+
+    
 });
+
 
 
 

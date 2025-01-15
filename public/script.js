@@ -23,7 +23,7 @@ async function verifyToken() {
         window.location.href = "login.html"
         return
     }
-    const response = await fetch("https://chatfly.onrender.com/verify", {
+    const response = await fetch("http://localhost:3000/verify", {
         method: "POST",
         headers: {
             'Content-Type': 'application/json',
@@ -81,6 +81,17 @@ try {
                     <img src="img/user.png" alt="name">
 
                 </div>
+                <div class="input-wrapper signup-wrapper">
+                    <select id="signup-gender" name="gender" required>
+                    <option value="" disabled selected></option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                 </select>
+                <label for="signup-gender">Gender</label>
+                <img src="img/gender-fluid.png" alt="gender">
+                </div>
+
 
                 <div class="input-wrapper signup-wrapper">
                     <input type="number" id="signup-mobile" name="mobile" placeholder=" " required>
@@ -117,6 +128,24 @@ try {
 
 }
 
+function inputcheck() {
+    const Toast = Swal.mixin({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.onmouseenter = Swal.stopTimer;
+            toast.onmouseleave = Swal.resumeTimer;
+        }
+    });
+    Toast.fire({
+        icon: "error",
+        title: "Please fill in all the fields"
+    });
+}
+
 
 
 async function signupUser() {
@@ -124,22 +153,26 @@ async function signupUser() {
     const mobile = document.getElementById('signup-mobile').value.trim();
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value.trim();
-    const time = new Date().toLocaleString();
+    const gender = document.getElementById("signup-gender").value
+    let time = new Date().toLocaleString();
+    const displayName = await getDisplayName(gender);
 
 
-    if (!username || !mobile || !email || !password) {
-        alert("Please fill all the fields.");
+    if (!username || !mobile || !email || !password || !gender || !displayName) {
+        inputcheck();
         return;
     }
 
     try {
-        const response = await fetch('https://chatfly.onrender.com/signup', {
+        const response = await fetch('http://localhost:3000/signup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 username: username,
+                displayName: displayName,
+                gender: gender,
                 mobile: mobile,
                 email: email,
                 password: password,
@@ -151,21 +184,86 @@ async function signupUser() {
         if (response.ok) {
             const data = await response.json();
             console.log("Signup Successful:", data);
-            alert("Signup Successful!");
-            window.location.href = "login.html"
+            Swal.fire({
+                title: 'Signup Successful!',
+                text: `Your Display Name is ${displayName}`,
+                icon: 'success',
+                showConfirmButton: true,
+                confirmButtonText: 'Login',
+                timer: 3000,
+                timerProgressBar: true,
+                customClass: {
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    confirmButton: 'custom-swal-button',
+                    timerProgressBar: 'custom-swal-timer-bar',
+                },
+            }).then((result) => {
+                if (result.isConfirmed || result.dismiss === Swal.DismissReason.timer) {
+                    window.location.href = 'login.html';
+                }
+            });
         } else {
 
             const errorData = await response.json();
             console.error("Error:", errorData.message || "Something went wrong.");
-            alert(`Error: ${errorData.message || "Signup failed."}`);
+            mess = "Error:", errorData.message || "Something went wrong."
+            notify(mess);
+            
         }
-    } catch (error) {
+    }
+
+    catch (error) {
 
         console.error("Fetch Error:", error);
-        alert("Error: Unable to signup. Please try again later.");
+        mess = "Error: Unable to signup. Please try again later.";
+        notify(mess)
     }
 }
 
+
+
+
+
+async function getDisplayName(gender) {
+    try {
+        const response = await fetch(`https://randomuser.me/api/?gender=${gender}&inc=name&nat=us,dk,fr,gb`);
+        const data = await response.json();
+        const fname = data.results[0].name.first;
+        const lname = data.results[0].name.last;
+
+        return fname + " " + lname;
+    } catch (error) {
+        console.error('Error in fetching display Name:', error);
+        return null;
+    }
+}
+
+
+
+
+
+function notify(mess){
+    const Toast = Swal.mixin({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.onmouseenter = Swal.stopTimer;
+            toast.onmouseleave = Swal.resumeTimer;
+        }
+    });
+    Toast.fire({
+        icon: "error",
+        title: `${mess}`
+    }).then((result) => {
+        if (result.isConfirmed || result.dismiss === Swal.DismissReason.timer) {
+            window.location.href = 'login.html';
+        }
+    })
+}
 
 
 
@@ -233,12 +331,12 @@ async function loginUser() {
     const password = document.getElementById('login-password').value;
 
     if (!email || !password) {
-        alert("Please fill the details")
+        inputcheck()
         return;
     }
 
     try {
-        const response = await fetch('https://chatfly.onrender.com/login', {
+        const response = await fetch('http://localhost:3000/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -256,10 +354,36 @@ async function loginUser() {
             console.log(data)
             localStorage.setItem('token', data.token)
             localStorage.setItem('name', data.user.name)
-            window.location.href = 'dashboard.html'
+
+
+            Swal.fire({
+                title: 'Login Successful!',
+                text: `Welcome Back! ${data.user.name}.`,
+                icon: 'success',
+                showConfirmButton: true,
+                confirmButtonText: 'Start Chatting',
+                timer: 3000,
+                timerProgressBar: true,
+                customClass: {
+                    text: 'custom-swal-title',
+                    popup: 'custom-swal-popup',
+                    title: 'custom-swal-title',
+                    confirmButton: 'custom-swal-button',
+                    timerProgressBar: 'custom-swal-timer-bar',
+                },
+            }).then((result) => {
+
+                if (result.isConfirmed || result.dismiss === Swal.DismissReason.timer) {
+                    window.location.href = 'dashboard.html';
+                }
+            });
+
+
+
         }
         else {
-            alert("Invalid credentials")
+            mess = "Invalid credentials"
+            notify(mess)
             console.error("Error:", data.message)
         }
     } catch (error) {
@@ -268,18 +392,22 @@ async function loginUser() {
 
 }
 
-const socket = io('https://chatfly.onrender.com')
-const stoken = localStorage.getItem('stoken'); 
-const allMessages = document.getElementById('all-message'); 
-const messageInput = document.getElementById('message'); 
-const sendMessageButton = document.getElementById('send-message'); 
-let sender = localStorage.getItem('name').split(" ")[0]; 
 
-let rtoken = null; 
+const socket = io('http://localhost:3000')
+const stoken = localStorage.getItem('stoken');
+const allMessages = document.getElementById('all-message');
+const messageInput = document.getElementById('message');
+const sendMessageButton = document.getElementById('send-message');
+let sender = localStorage.getItem('name').split(" ")[0];
+
+let rtoken = null;
 socket.emit('user-join', stoken);
+setInterval(() => {
+    socket.emit('check-status');
+}, 1000);
 socket.on('update-users', (activeUsers) => {
     const userElements = document.querySelectorAll('.user');
-    
+
     userElements.forEach(userElement => {
         const userId = userElement.dataset.userid;
 
@@ -311,42 +439,42 @@ sendMessageButton.addEventListener('click', () => {
     const minutes = String(new Date().getMinutes()).padStart(2, "0");
     const time = `${hours} : ${minutes}`;
     const messageText = messageInput.value.trim();
-    if (messageText === '' || !rtoken) return; 
+    if (messageText === '' || !rtoken) return;
 
     const messageData = {
-        stoken: stoken, 
-        rtoken: rtoken, 
-        sender: sender, 
+        stoken: stoken,
+        rtoken: rtoken,
+        sender: sender,
         text: messageText,
-        time: time, 
+        time: time,
     };
 
- 
+
     socket.emit('send-message', messageData);
-    displayMessage({ ...messageData, sender: 'Me' }); 
-    messageInput.value = ''; 
+    displayMessage({ ...messageData, sender: 'Me' });
+    messageInput.value = '';
 });
 
 
 function displayMessage(message) {
     const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left'); 
+    messageDiv.classList.add('message', message.sender === 'Me' ? 'right' : 'left');
     messageDiv.innerHTML = `<p><strong>${message.sender}:</strong> ${message.text}</p>
                              <div class="time">${message.time}</div>`;
     allMessages.appendChild(messageDiv);
-    allMessages.scrollTop = allMessages.scrollHeight; 
+    allMessages.scrollTop = allMessages.scrollHeight;
 }
 
 
 function setReceiver(newReceiverToken) {
-    rtoken = newReceiverToken; 
-    loadChatHistory(rtoken); 
+    rtoken = newReceiverToken;
+    loadChatHistory(rtoken);
 }
 
 
 async function loadChatHistory(receiverToken) {
     try {
-        const response = await fetch('https://chatfly.onrender.com/load-history', {
+        const response = await fetch('http://localhost:3000/load-history', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -363,7 +491,7 @@ async function loadChatHistory(receiverToken) {
         }
 
         const chatHistory = await response.json();
-        allMessages.innerHTML = ''; 
+        allMessages.innerHTML = '';
         chatHistory.messages.forEach(message => {
             console.log(message)
             if (message.senderId === stoken) {
@@ -387,18 +515,18 @@ async function loadChatHistory(receiverToken) {
 
 async function loadUsers() {
     try {
-        const response = await fetch('https://chatfly.onrender.com/users');
-        const users = await response.json(); 
+        const response = await fetch('http://localhost:3000/users');
+        const users = await response.json();
 
         const userList = document.querySelector('.people-container');
-        userList.innerHTML = `<div class="heading">All Chats</div>`; 
+        userList.innerHTML = `<div class="heading">All Chats</div>`;
 
-        
+
         users.forEach(user => {
             const userDiv = document.createElement('div');
-            userDiv.classList.add('user'); 
-            userDiv.setAttribute('data-userId', user._id); 
-            userDiv.setAttribute('data-username', user.username); 
+            userDiv.classList.add('user');
+            userDiv.setAttribute('data-userId', user._id);
+            userDiv.setAttribute('data-username', user.username);
 
             userDiv.innerHTML = `
                 <div class="dp">
@@ -409,19 +537,19 @@ async function loadUsers() {
                     <p class="status">Don't Know</p>
                 </div>
             `;
-            userList.appendChild(userDiv); 
+            userList.appendChild(userDiv);
 
             document.querySelectorAll('.user').forEach(user => {
                 user.addEventListener('click', (event) => {
                     const userId = event.currentTarget.dataset.userid;
                     document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
-                    setReceiver(userId); 
+                    setReceiver(userId);
 
 
                 });
             })
 
-            
+
 
 
 
@@ -432,6 +560,7 @@ async function loadUsers() {
         console.error('Failed to load users:', error);
     }
 }
+
 
 
 
