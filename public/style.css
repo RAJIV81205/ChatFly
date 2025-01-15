@@ -590,9 +590,27 @@ span {
         text-wrap: balance;
     }
 
-    .people-container{
-        display: none !important;
+    .main-dashboard-section{
+        flex-direction: column !important;
+        height: fit-content !important;
+        gap: 10px;
+        border-radius: 0 ;
     }
+
+    .people-container{ 
+        width: 100% !important;
+        height: 100vh !important;
+    }
+
+    .message-container{
+        height: 100vh !important;
+    }
+
+    .user{
+        width: 90% !important;
+    }
+
+
 }
 
 .main-dashboard-section {
@@ -613,14 +631,13 @@ span {
     padding: 20px;
     width: 30%;
     height: 100%;
-    max-width: 300px; 
-    margin: 0 auto;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
     overflow-y: scroll;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
+    overflow-x: hidden;
   }
   
   .heading {
@@ -750,7 +767,7 @@ span {
     border-radius: 10px;
 }
 
-/* Left Message (Received) Styling */
+
 .message.left {
     display: flex;
     flex-direction: column;
@@ -775,7 +792,7 @@ span {
     margin-top: 5px;
 }
 
-/* Right Message (Sent) Styling */
+
 .message.right {
     display: flex;
     flex-direction: column;

@@ -546,6 +546,7 @@ async function loadUsers() {
                     const userId = event.currentTarget.dataset.userid;
                     document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
                     setReceiver(userId);
+                    window.location.href=  "#message-container"
 
 
                 });
