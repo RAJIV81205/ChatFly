@@ -415,12 +415,12 @@ socket.on('update-users', (activeUsers) => {
         const userId = userElement.dataset.userid;
 
         if (activeUsers.includes(userId)) {
-            // If user is active, mark them online
+            userElement.style.backgroundColor = "#52f65b"
             const statusElement = userElement.querySelector('.status');
             statusElement.textContent = 'Online';
             statusElement.classList.remove('offline');
         } else {
-            // If user is not active, mark them offline
+           
             const statusElement = userElement.querySelector('.status');
             statusElement.textContent = 'Offline';
             statusElement.classList.remove('online');
@@ -521,7 +521,7 @@ async function loadUsers() {
         const users = await response.json();
 
         const userList = document.querySelector('.people-container');
-        userList.innerHTML = `<div class="heading">All Chats</div>`;
+        userList.innerHTML = `<div class="heading"><img src="img/profile-user.png" alt="dp">All Chats <img src="img/exit.png" alt="exit" id="log-out"></div>`;
 
 
         users.forEach(user => {
@@ -546,10 +546,17 @@ async function loadUsers() {
                     const userId = event.currentTarget.dataset.userid;
                     document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
                     setReceiver(userId);
-                    window.location.href=  "#message-container"
+                    window.location.href=  "#message-container";
+                    document.getElementById('message').disabled=false
 
 
                 });
+            });
+
+            document.getElementById("log-out").addEventListener('click', ()=>{
+                localStorage.clear();
+                mess = "Logging Out...."
+                notify(mess)
             })
 
 
