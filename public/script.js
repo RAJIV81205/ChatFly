@@ -1,12 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const loader = document.querySelector('.blob-container')
     loader.style.display = "none"
     try {
         if (window.location.pathname.split("/").pop() == "dashboard.html" || window.location.pathname.split("/").pop() == "dashboard") {
             verifyToken();
             loadUsers();
-            loadProfile()
-
+            loadProfile();
         }
 
     } catch (error) {
@@ -17,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 })
+
 
 
 
@@ -526,12 +526,18 @@ async function loadUsers() {
         const userList = document.querySelector('.people-container');
         userList.innerHTML = `<div class="heading"><img src="img/profile-user.png" id="profile-img" alt="dp">All Chats <img src="img/exit.png" alt="exit" id="log-out"></div>`;
 
+        const userid = localStorage.getItem('stoken')
 
         users.forEach(user => {
-            const userDiv = document.createElement('div');
+
+
+            if (userid === user._id) {
+                return;
+            }
+            const userDiv = document.createElement('div')
             userDiv.classList.add('user');
-            userDiv.setAttribute('data-userId', user._id);
-            userDiv.setAttribute('data-username', user.displayName);
+            userDiv.setAttribute('data-userId', user._id)
+            userDiv.setAttribute('data-username', user.displayName)
 
             userDiv.innerHTML = `
                 <div class="dp">
@@ -547,7 +553,7 @@ async function loadUsers() {
             document.querySelectorAll('.user').forEach(user => {
                 user.addEventListener('click', (event) => {
                     const userId = event.currentTarget.dataset.userid;
-                    document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
+                    document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username
                     setReceiver(userId);
                     window.location.href = "#message-container";
                     document.getElementById('message').disabled = false
@@ -724,3 +730,39 @@ async function updateProfileInDatabase(userid, data) {
 
     return response.json();
 }
+
+
+
+
+if ('serviceWorker' in navigator && 'PushManager' in window) {
+    navigator.serviceWorker.register('/service-worker.js')
+        .then(async (registration) => {
+            console.log('Service Worker registered:', registration);
+
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: 'BM3jfuIBk3oUnjNKUpLjEAfr_VvFpQ4jX6UmWdTZDox37Tt4nYHTaEOIkq0PfAl5Rf6HeerZ59DXjmH0jPQpwuw',
+            });
+
+            console.log('User is subscribed:', subscription);
+
+            // Send subscription details to the backend
+            await fetch('/subscribe', {
+                method: 'POST',
+                body: JSON.stringify(subscription),
+                headers: { 'Content-Type': 'application/json' },
+            });
+        })
+        .catch((error) => {
+            console.error('Service Worker registration or subscription failed:', error);
+        });
+}
+
+// Request Notification Permissions
+Notification.requestPermission().then((permission) => {
+    if (permission === 'granted') {
+        console.log('Notifications are enabled.');
+    } else {
+        console.warn('Notifications are blocked.');
+    }
+});
