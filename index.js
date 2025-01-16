@@ -36,7 +36,7 @@ app.use(express.static(path.join("public")));
 const PORT = process.env.PORT || 5000;
 const URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
-const secretKey = process.env.secretKey; 
+const secretKey = process.env.secretKey;
 
 
 
@@ -62,12 +62,12 @@ const User = mongoose.model('User', userSchema);
 
 
 const MessageSchema = new mongoose.Schema({
-    sender: { type: String, required: true }, 
-    senderId: { type: String, required: true }, 
-    receiverId: { type: String, required: true }, 
-    text: { type: String, required: true }, 
-    time: { type: String, required: true }, 
-    timestamp: { type: Date, default: Date.now }, 
+    sender: { type: String, required: true },
+    senderId: { type: String, required: true },
+    receiverId: { type: String, required: true },
+    text: { type: String, required: true },
+    time: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
 });
 
 const History = mongoose.model('Message', MessageSchema);
@@ -228,7 +228,7 @@ io.on('connection', (socket) => {
 
 
 async function saveMessages(messageData) {
-   
+
     const encryptedMessage = encrypt(messageData.text);
 
     try {
@@ -236,7 +236,7 @@ async function saveMessages(messageData) {
             sender: messageData.sender,
             senderId: messageData.stoken,
             receiverId: messageData.rtoken,
-            text: encryptedMessage, 
+            text: encryptedMessage,
             time: messageData.time,
         });
         await newMessage.save();
@@ -256,12 +256,12 @@ app.post('/load-history', async (req, res) => {
             ],
         }).sort({ timestamp: 1 });
 
-       
+
         const decryptedMessages = messages.map((message) => ({
             sender: message.sender,
             senderId: message.senderId,
             receiverId: message.receiverId,
-            text: decrypt(message.text), 
+            text: decrypt(message.text),
             time: message.time,
         }));
 
@@ -293,6 +293,47 @@ function decrypt(cipherText) {
     const bytes = CryptoJS.AES.decrypt(cipherText, secretKey);
     return bytes.toString(CryptoJS.enc.Utf8);
 }
+
+
+app.post('/load-profile', async (req, res) => {
+    try {
+        const { userid } = req.body;
+        const user = await User.findById(userid);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        else{
+            return res.status(200).json({user})
+        }
+
+    } catch (error) {
+
+    }
+})
+
+
+
+app.post('/updateProfile', async (req, res) => {
+    const { id, username, mobile,  email, time } = req.body;
+
+    try {
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.username = username;
+        user.mobile = mobile;
+        user.email = email;
+        user.time = time;
+
+        await user.save();
+        res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
 
 
 server.listen(PORT, () => {

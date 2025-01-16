@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.location.pathname.split("/").pop() == "dashboard.html" || window.location.pathname.split("/").pop() == "dashboard") {
             verifyToken();
             loadUsers();
+            loadProfile()
 
         }
 
@@ -12,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error(error)
 
     }
+
+
 
 })
 
@@ -373,7 +376,7 @@ async function loginUser() {
 
                 if (result.isConfirmed || result.dismiss === Swal.DismissReason.timer) {
                     window.location.href = "dashboard.html";
-                    
+
                 }
             });
 
@@ -420,7 +423,7 @@ socket.on('update-users', (activeUsers) => {
             statusElement.textContent = 'Online';
             statusElement.classList.remove('offline');
         } else {
-           
+
             const statusElement = userElement.querySelector('.status');
             statusElement.textContent = 'Offline';
             statusElement.classList.remove('online');
@@ -521,7 +524,7 @@ async function loadUsers() {
         const users = await response.json();
 
         const userList = document.querySelector('.people-container');
-        userList.innerHTML = `<div class="heading"><img src="img/profile-user.png" alt="dp">All Chats <img src="img/exit.png" alt="exit" id="log-out"></div>`;
+        userList.innerHTML = `<div class="heading"><img src="img/profile-user.png" id="profile-img" alt="dp">All Chats <img src="img/exit.png" alt="exit" id="log-out"></div>`;
 
 
         users.forEach(user => {
@@ -546,18 +549,26 @@ async function loadUsers() {
                     const userId = event.currentTarget.dataset.userid;
                     document.querySelector('.current-selected-username').textContent = event.currentTarget.dataset.username;
                     setReceiver(userId);
-                    window.location.href=  "#message-container";
-                    document.getElementById('message').disabled=false
+                    window.location.href = "#message-container";
+                    document.getElementById('message').disabled = false
 
 
                 });
             });
 
-            document.getElementById("log-out").addEventListener('click', ()=>{
+            document.getElementById("log-out").addEventListener('click', () => {
                 localStorage.clear();
                 mess = "Logging Out...."
                 notify(mess)
             })
+
+            
+
+
+
+
+
+
 
 
 
@@ -571,7 +582,125 @@ async function loadUsers() {
     }
 }
 
+try {
+    const profile = document.querySelector(".profile-section");
+    const profileImg = document.getElementById("profile-img");
+
+    if (!profile || !profileImg) {
+        throw new Error("Either '.profile-section' or '#profile-img' element is missing.");
+    }
+
+    profileImg.addEventListener('click', () => {
+        profile.classList.toggle("active");
+    });
+
+} catch (error) {
+    console.error("An error occurred:", error);
+}
 
 
 
 
+
+async function loadProfile() {
+    const userid = localStorage.getItem('stoken');
+    const response = await fetch('https://chatfly.onrender.com/load-profile', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            userid: userid,
+        }),
+    });
+
+    if (!response.ok) {
+        console.error('Failed to fetch profile');
+        return;
+    }
+
+    const profile = await response.json();
+    console.log(profile)
+
+    document.getElementById("profile-name").textContent = profile.user.displayName
+    document.getElementById("profile-username").textContent = profile.user.username;
+    document.getElementById("profile-mobile").textContent = profile.user.mobile;
+    document.getElementById("profile-displayName").textContent = profile.user.displayName;
+    document.getElementById("profile-gender").textContent = profile.user.gender;
+    document.getElementById("profile-email").textContent = profile.user.email;
+    document.getElementById("profile-time").textContent = profile.user.time;
+
+
+
+
+    const profileElements = {
+        username: document.getElementById('profile-username'),
+        mobile: document.getElementById('profile-mobile'),
+        displayName: document.getElementById('profile-displayName'),
+        gender: document.getElementById('profile-gender'),
+        email: document.getElementById('profile-email'),
+        time: document.getElementById('profile-time'),
+    };
+
+    const editButton = document.getElementById('edit-button');
+
+    let isEditing = false;
+
+    editButton.addEventListener('click', async () => {
+        if (!isEditing) {
+            for (let key in profileElements) {
+                if (key !== 'time' && key !== 'gender' && key !== 'displayName') {
+                    profileElements[key].setAttribute('contenteditable', 'true');
+                    profileElements[key].classList.add('editable');
+                }
+            }
+            editButton.textContent = 'Submit';
+        } else {
+            const updatedData = {
+                username: profileElements.username.textContent.trim(),
+                mobile: profileElements.mobile.textContent.trim(),
+                displayName: profileElements.displayName.textContent.trim(),
+                email: profileElements.email.textContent.trim(),
+                time: new Date().toLocaleString(),
+            };
+
+            try {
+
+
+                const response = await updateProfileInDatabase(userid, updatedData);
+
+                if (response.success) {
+                    profileElements.time.textContent = updatedData.time;
+                    for (let key in profileElements) {
+                        profileElements[key].setAttribute('contenteditable', 'false');
+                        profileElements[key].classList.remove('editable');
+                    }
+                    editButton.textContent = 'Edit Profile';
+                } else {
+                    throw new Error(response.message);
+                }
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                alert('Failed to save changes. Please try again.');
+            }
+        }
+
+        isEditing = !isEditing;
+    });
+
+}
+
+
+async function updateProfileInDatabase(userid, data) {
+    const backendUrl = 'https://chatfly.onrender.com/updateProfile';
+
+    const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: userid, ...data }),
+    });
+
+    return response.json();
+}
