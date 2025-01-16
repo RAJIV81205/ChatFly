@@ -26,7 +26,7 @@ const server = http.createServer(app);
 
 const io = require('socket.io')(server, {
     cors: {
-        origin: ["http://127.0.0.1:5500", "https://chatfly.onrender.com"],
+        origin: "*",
         methods: ["GET", "POST"]
     }
 });
