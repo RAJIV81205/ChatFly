@@ -556,13 +556,9 @@ async function loadUsers() {
                 });
             });
 
-            document.getElementById("log-out").addEventListener('click', () => {
-                localStorage.clear();
-                mess = "Logging Out...."
-                notify(mess)
-            })
 
-            
+
+
 
 
 
@@ -577,26 +573,31 @@ async function loadUsers() {
 
 
         });
+
+        document.getElementById("log-out").addEventListener('click', () => {
+            localStorage.clear();
+            mess = "Logging Out...."
+            notify(mess)
+        })
+
+
+        const profile = document.querySelector(".profile-section");
+        const profileImg = document.getElementById("profile-img");
+
+        if (!profile || !profileImg) {
+            throw new Error("Either '.profile-section' or '#profile-img' element is missing.");
+        }
+
+        profileImg.addEventListener('click', () => {
+            profile.classList.toggle("active");
+        });
+
     } catch (error) {
         console.error('Failed to load users:', error);
     }
 }
 
-try {
-    const profile = document.querySelector(".profile-section");
-    const profileImg = document.getElementById("profile-img");
 
-    if (!profile || !profileImg) {
-        throw new Error("Either '.profile-section' or '#profile-img' element is missing.");
-    }
-
-    profileImg.addEventListener('click', () => {
-        profile.classList.toggle("active");
-    });
-
-} catch (error) {
-    console.error("An error occurred:", error);
-}
 
 
 

@@ -1117,6 +1117,6 @@ button+button {
 
 .editable {
     outline: 2px dashed #76e698;
-    padding: 2px;
+    padding: 2px 5px;
     border-radius: 4px;
 }
