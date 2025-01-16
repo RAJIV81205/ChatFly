@@ -6,8 +6,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const CryptoJS = require('crypto-js');
-const bodyParser = require('body-parser');
-const webPush = require('web-push');
+
+
 
 
 
@@ -35,7 +35,7 @@ dotenv.config();
 
 app.use(express.json());
 app.use(cors());
-app.use(bodyParser.json());
+
 app.use(express.static(path.join("public")));
 
 
