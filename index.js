@@ -18,6 +18,7 @@ const { Server } = require('socket.io');
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(express.static(path.join("public")));
 
 const http = require('http');
 const server = http.createServer(app);
@@ -26,7 +27,7 @@ const server = http.createServer(app);
 
 const io = require('socket.io')(server, {
     cors: {
-        origin: "*",
+        origin: ["http://127.0.0.1:5500", "https://chatfly.onrender.com"],
         methods: ["GET", "POST"]
     }
 });
@@ -38,7 +39,6 @@ dotenv.config();
 
 
 
-app.use(express.static(path.join("public")));
 
 
 const PORT = process.env.PORT || 5000;
