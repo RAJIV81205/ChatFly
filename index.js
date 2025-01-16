@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const CryptoJS = require('crypto-js');
+const { Server } = require('socket.io');
 
 
 
@@ -15,6 +16,8 @@ const CryptoJS = require('crypto-js');
 
 
 const app = express();
+app.use(express.json());
+app.use(cors());
 
 const http = require('http');
 const server = http.createServer(app);
@@ -33,8 +36,7 @@ const io = require('socket.io')(server, {
 
 dotenv.config();
 
-app.use(express.json());
-app.use(cors());
+
 
 app.use(express.static(path.join("public")));
 
