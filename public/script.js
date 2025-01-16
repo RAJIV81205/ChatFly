@@ -423,7 +423,7 @@ socket.on('update-users', (activeUsers) => {
             statusElement.textContent = 'Online';
             statusElement.classList.remove('offline');
         } else {
-
+            userElement.style.backgroundColor = "#e6e6e6"
             const statusElement = userElement.querySelector('.status');
             statusElement.textContent = 'Offline';
             statusElement.classList.remove('online');
