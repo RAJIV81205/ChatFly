@@ -734,35 +734,3 @@ async function updateProfileInDatabase(userid, data) {
 
 
 
-if ('serviceWorker' in navigator && 'PushManager' in window) {
-    navigator.serviceWorker.register('/service-worker.js')
-        .then(async (registration) => {
-            console.log('Service Worker registered:', registration);
-
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: 'BM3jfuIBk3oUnjNKUpLjEAfr_VvFpQ4jX6UmWdTZDox37Tt4nYHTaEOIkq0PfAl5Rf6HeerZ59DXjmH0jPQpwuw',
-            });
-
-            console.log('User is subscribed:', subscription);
-
-            // Send subscription details to the backend
-            await fetch('/subscribe', {
-                method: 'POST',
-                body: JSON.stringify(subscription),
-                headers: { 'Content-Type': 'application/json' },
-            });
-        })
-        .catch((error) => {
-            console.error('Service Worker registration or subscription failed:', error);
-        });
-}
-
-// Request Notification Permissions
-Notification.requestPermission().then((permission) => {
-    if (permission === 'granted') {
-        console.log('Notifications are enabled.');
-    } else {
-        console.warn('Notifications are blocked.');
-    }
-});

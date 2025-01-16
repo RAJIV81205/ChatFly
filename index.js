@@ -345,47 +345,6 @@ app.post('/updateProfile', async (req, res) => {
 
 
 
-const vapidKeys = {
-    publicKey: 'BM3jfuIBk3oUnjNKUpLjEAfr_VvFpQ4jX6UmWdTZDox37Tt4nYHTaEOIkq0PfAl5Rf6HeerZ59DXjmH0jPQpwuw',
-    privateKey: 'NQRr__pZlg0vsN8DMOODuCu4Bz5t4SOA9d5kGNJ7wYo',
-};
-
-webPush.setVapidDetails(
-    'mailto:lucky81205@gmail.com',
-    vapidKeys.publicKey,
-    vapidKeys.privateKey
-);
-
-let subscriptions = [];
-
-
-app.post('/subscribe', (req, res) => {
-    const subscription = req.body;
-    subscriptions.push(subscription);
-    res.status(201).json({ message: 'Subscription saved.' });
-});
-
-
-app.post('/send-notification', (req, res) => {
-    const { title, body } = req.body;
-
-    const payload = JSON.stringify({
-        title,
-        body,
-        icon: '/img/boy.png',
-    });
-
-    subscriptions.forEach((subscription) => {
-        webPush
-            .sendNotification(subscription, payload)
-            .then(() => console.log('Notification sent.'))
-            .catch((error) => console.error('Error sending notification:', error));
-    });
-
-    res.status(200).json({ message: 'Notifications sent.' });
-});
-
-
 app.listen(PORT ,()=>{
     console.log(`Server is running on port ${PORT}`)
 })
