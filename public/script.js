@@ -396,7 +396,17 @@ async function loginUser() {
 
 
 
-const socket = io('http://localhost:3000');
+const socket = io('https://chatfly.onrender.com', {
+    reconnectionDelay: 1000,
+    reconnection: true,
+    reconnectionAttemps: 10,
+    transports: ['websocket'],
+    agent: false,
+    upgrade: false,
+    rejectUnauthorized: false
+});
+
+
 const stoken = localStorage.getItem('stoken');
 socket.emit('user-join', stoken);
 
