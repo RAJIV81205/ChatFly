@@ -6,30 +6,31 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const CryptoJS = require('crypto-js');
-
-
-
-
-
-
-
+const http = require('http');
+const { Server } = require("socket.io");
 
 
 const app = express();
 app.use(express.json());
-app.use(cors());
-app.use(express.static(path.join("public")));
+app.use(cors({
+    origin: ["http://127.0.0.1:5500", "https://chatfly.onrender.com"],
+    methods: ["GET", "POST"],
+    credentials: true
+}));
+app.use(express.static(path.join(__dirname, "public")));
 
-const http = require('http');
 const server = http.createServer(app);
-
-
 
 const io = require('socket.io')(server, {
     cors: {
         origin: ["http://127.0.0.1:5500", "https://chatfly.onrender.com"],
-        methods: ["GET", "POST"]
-    }
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true
 });
 
 
@@ -351,6 +352,6 @@ app.post('/updateProfile', async (req, res) => {
 
 
 
-app.listen(PORT ,()=>{
-    console.log(`Server is running on port ${PORT}`)
-})
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});

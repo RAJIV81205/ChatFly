@@ -397,15 +397,37 @@ async function loginUser() {
 
 
 const socket = io('https://chatfly.onrender.com', {
-    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
     reconnection: true,
-    reconnectionAttemps: 10,
-    transports: ['websocket'],
-    agent: false,
-    upgrade: false,
-    rejectUnauthorized: false
+    reconnectionAttempts: 10,
+    transports: ['websocket', 'polling'],
+    secure: true,
+    rejectUnauthorized: false,
+    path: '/socket.io/',
+    withCredentials: true
 });
 
+
+socket.on('connect', () => {
+    console.log('Successfully connected to server');
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Connection Error:', error);
+    // Try to reconnect with polling if websocket fails
+    if (socket.io.opts.transports.includes('websocket')) {
+        console.log('Falling back to polling transport');
+        socket.io.opts.transports = ['polling'];
+    }
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Disconnected:', reason);
+    if (reason === 'io server disconnect') {
+        // Reconnect if server disconnected
+        socket.connect();
+    }
+});
 
 const stoken = localStorage.getItem('stoken');
 socket.emit('user-join', stoken);
@@ -740,7 +762,3 @@ async function updateProfileInDatabase(userid, data) {
 
     return response.json();
 }
-
-
-
-
