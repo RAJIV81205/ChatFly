@@ -48,7 +48,7 @@ async function verifyToken() {
 
         const exptime = exp;
         const current = new Date();
-        console.log(exptime, current)
+
 
         if (exptime < current) {
             localStorage.clear()
