@@ -414,7 +414,6 @@ socket.on('connect', () => {
 
 socket.on('connect_error', (error) => {
     console.error('Connection Error:', error);
-    // Try to reconnect with polling if websocket fails
     if (socket.io.opts.transports.includes('websocket')) {
         console.log('Falling back to polling transport');
         socket.io.opts.transports = ['polling'];
@@ -424,7 +423,6 @@ socket.on('connect_error', (error) => {
 socket.on('disconnect', (reason) => {
     console.log('Disconnected:', reason);
     if (reason === 'io server disconnect') {
-        // Reconnect if server disconnected
         socket.connect();
     }
 });
@@ -659,7 +657,6 @@ async function loadProfile() {
     }
 
     const profile = await response.json();
-    console.log(profile)
 
     document.getElementById("profile-name").textContent = profile.user.displayName
     document.getElementById("profile-username").textContent = profile.user.username;
