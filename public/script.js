@@ -469,6 +469,8 @@ socket.on('receive-message', (messageData) => {
     }
 });
 
+try{
+
 
 sendMessageButton.addEventListener('click', () => {
     const hours = String(new Date().getHours()).padStart(2, "0");
@@ -490,6 +492,9 @@ sendMessageButton.addEventListener('click', () => {
     displayMessage({ ...messageData, sender: 'Me' });
     messageInput.value = '';
 });
+}catch(error){
+    console.error(error)
+}
 
 
 function displayMessage(message) {
@@ -759,3 +764,4 @@ async function updateProfileInDatabase(userid, data) {
 
     return response.json();
 }
+
