@@ -122,9 +122,9 @@ const Login = () => {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">
+              <Link href="#" className="font-medium text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">
                 Forgot password?
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -193,7 +193,7 @@ const Login = () => {
         <div className="text-center mt-4">
           <div className="text-sm">
             <span className="text-gray-500">Don't have an account? </span>
-            <Link href="/register" className="font-medium text-[#a78bfa] hover:text-[#c4b5fd] flex items-center justify-center mt-2 transition-colors">
+            <Link href="/auth/register" className="font-medium text-[#a78bfa] hover:text-[#c4b5fd] flex items-center justify-center mt-2 transition-colors">
               Create an account
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
