@@ -1,17 +1,42 @@
 "use client"
-
-import React from 'react'
+import React, { useState } from 'react'
 import ChatSidebar from './ChatSidebar'
 import Chats from './Chats'
 
 const Dashboard = () => {
+  const [selectedChat, setSelectedChat] = useState(null)
+  const [isMobileView, setIsMobileView] = useState(false)
+
+  const handleChatSelect = (chat) => {
+    setSelectedChat(chat)
+    setIsMobileView(true) // For mobile, show chat view when selected
+  }
+
+  const handleBackToSidebar = () => {
+    setIsMobileView(false)
+    // Don't clear selectedChat so it remains highlighted in sidebar
+  }
+
   return (
-    <div className='h-screen w-full flex bg-black'>
-      <div className='w-[20vw] border-r border-white/20'>
-        <ChatSidebar />
+    <div className="h-screen flex bg-gray-100">
+      {/* Sidebar */}
+      <div className={`${
+        isMobileView ? 'hidden' : 'block'
+      } lg:block w-full lg:w-80 flex-shrink-0`}>
+        <ChatSidebar 
+          onChatSelect={handleChatSelect}
+          selectedChatId={selectedChat?.id}
+        />
       </div>
-      <div className='flex-1'>
-        <Chats />
+
+      {/* Chat Area */}
+      <div className={`${
+        isMobileView ? 'block' : 'hidden'
+      } lg:block lg:flex-1`}>
+        <Chats 
+          selectedChat={selectedChat}
+          onBack={handleBackToSidebar}
+        />
       </div>
     </div>
   )
