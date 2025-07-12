@@ -1,14 +1,12 @@
 "use client"
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Sun, Moon } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 
 const Header = () => {
-  const [isDarkMode, setIsDarkMode] = useState(true);
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+  const { theme, toggleTheme } = useTheme();
+  const isDarkMode = theme === 'dark';
 
   return (
     <header className={`w-[60dvw] h-[10dvh] rounded-lg px-6 py-4 border-2 border-white/10 backdrop-blur-sm mt-5 transition-colors duration-300 absolute top-0 left-1/2 -translate-x-1/2 ${
