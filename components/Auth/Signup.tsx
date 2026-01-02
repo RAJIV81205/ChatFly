@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
 import {
-    AtSign,
+  AtSign,
   User,
   Mail,
   Phone,
@@ -118,11 +118,11 @@ export default function Signup() {
         return;
       }
 
-      setUsernameStatus(prev => ({ ...prev, isChecking: true }));
+      setUsernameStatus((prev) => ({ ...prev, isChecking: true }));
 
       try {
         console.log("Checking username:", username); // Debug log
-        
+
         const response = await fetch("/api/auth/checkusername", {
           method: "POST",
           headers: {
@@ -132,7 +132,7 @@ export default function Signup() {
         });
 
         console.log("Response status:", response.status); // Debug log
-        
+
         const data = await response.json();
         console.log("Response data:", data); // Debug log
 
@@ -272,8 +272,27 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      // Simulate API call to send OTP
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Signup failed");
+      }
+
+      console.log("OTP Sent", data);
 
       // Move to OTP step
       setStep("otp");
@@ -457,18 +476,20 @@ export default function Signup() {
                 ) : null}
               </div>
             </div>
-            
+
             {/* Username Status Message */}
             {usernameStatus.message && !errors.username && (
-              <p className={`mt-2 text-sm ${
-                usernameStatus.isAvailable === true
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
-              }`}>
+              <p
+                className={`mt-2 text-sm ${
+                  usernameStatus.isAvailable === true
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              >
                 {usernameStatus.message}
               </p>
             )}
-            
+
             {errors.username && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                 {errors.username}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
 import { signupSchema } from "@/lib/validators/auth";
+import { sendOTPEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -69,11 +70,42 @@ export async function POST(request: Request) {
       },
     });
 
-    /* ---------- SEND OTP (NEXT STEP) ---------- */
-    // generate OTP
-    // hash OTP
-    // save to EmailOTP table
-    // send email
+    /* ---------- SEND OTP ---------- */
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Hash OTP for storage
+    const otpHash = await bcrypt.hash(otp, 10);
+    
+    // Set expiration time (10 minutes from now)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    
+    // Delete any existing OTP for this email
+    await prisma.emailOTP.deleteMany({
+      where: { email },
+    });
+    
+    // Save OTP to database
+    await prisma.emailOTP.create({
+      data: {
+        email,
+        otpHash,
+        expiresAt,
+      },
+    });
+    
+    // Send OTP email
+    try {
+      await sendOTPEmail(email, otp);
+    } catch (emailError) {
+      console.error("Failed to send OTP email:", emailError);
+      // Delete the user if email fails to send
+      await prisma.user.delete({ where: { id: user.id } });
+      return NextResponse.json(
+        { error: "Failed to send verification email" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { message: "User created. OTP sent.", userId: user.id },
