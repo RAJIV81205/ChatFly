@@ -1,0 +1,595 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import gsap from "gsap";
+import {
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  Check,
+  X,
+  ArrowRight,
+  Shield,
+  UserCheck,
+  MessageSquare,
+} from "lucide-react";
+
+interface FormData {
+  username: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+}
+
+interface PasswordStrength {
+  score: number;
+  feedback: string[];
+  isValid: boolean;
+}
+
+export default function Signup() {
+  const [step, setStep] = useState<"signup" | "otp">("signup");
+  const [formData, setFormData] = useState<FormData>({
+    username: "",
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [otp, setOtp] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Partial<FormData & { otp: string }>>({});
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
+    score: 0,
+    feedback: [],
+    isValid: false,
+  });
+
+  const formRef = useRef<HTMLDivElement>(null);
+  const otpRef = useRef<HTMLDivElement>(null);
+
+  // Animation on mount
+  useEffect(() => {
+    if (!formRef.current) return;
+
+    const tl = gsap.timeline({
+      defaults: { ease: "power3.out" },
+    });
+
+    tl.to(formRef.current, {
+      opacity: 1,
+      y: 0,
+      duration: 0.6,
+    })
+      .to(
+        ".form-field",
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.4,
+          stagger: 0.1,
+        },
+        "-=0.3"
+      );
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
+
+  // OTP step animation
+  useEffect(() => {
+    if (step === "otp" && otpRef.current) {
+      gsap.fromTo(
+        otpRef.current,
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }
+      );
+    }
+  }, [step]);
+
+  // Password strength checker
+  useEffect(() => {
+    const checkPasswordStrength = (password: string): PasswordStrength => {
+      const feedback: string[] = [];
+      let score = 0;
+
+      if (password.length >= 8) {
+        score += 1;
+      } else if (password.length > 0) {
+        feedback.push("At least 8 characters");
+      }
+
+      if (/[A-Z]/.test(password)) {
+        score += 1;
+      } else if (password.length > 0) {
+        feedback.push("One uppercase letter");
+      }
+
+      if (/[a-z]/.test(password)) {
+        score += 1;
+      } else if (password.length > 0) {
+        feedback.push("One lowercase letter");
+      }
+
+      if (/\d/.test(password)) {
+        score += 1;
+      } else if (password.length > 0) {
+        feedback.push("One number");
+      }
+
+      if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        score += 1;
+      } else if (password.length > 0) {
+        feedback.push("One special character");
+      }
+
+      return {
+        score,
+        feedback,
+        isValid: score === 5, // Must meet ALL 5 requirements
+      };
+    };
+
+    setPasswordStrength(checkPasswordStrength(formData.password));
+  }, [formData.password]);
+
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<FormData> = {};
+
+    if (!formData.username.trim()) {
+      newErrors.username = "Username is required";
+    } else if (formData.username.length < 3) {
+      newErrors.username = "Username must be at least 3 characters";
+    }
+
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = "Full name is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email";
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\+?[\d\s-()]+$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (!passwordStrength.isValid) {
+      newErrors.password = "Password doesn't meet requirements";
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords don't match";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    
+    try {
+      // Simulate API call to send OTP
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      // Move to OTP step
+      setStep("otp");
+    } catch (error) {
+      console.error("Signup error:", error);
+      // Handle error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!otp.trim()) {
+      setErrors({ otp: "Please enter the OTP" });
+      return;
+    }
+
+    if (otp.length !== 6) {
+      setErrors({ otp: "OTP must be 6 digits" });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Simulate OTP verification
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      
+      // Handle successful signup
+      console.log("Signup successful!");
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      setErrors({ otp: "Invalid OTP. Please try again." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength.score <= 1) return "bg-red-500";
+    if (passwordStrength.score <= 3) return "bg-yellow-500";
+    return "bg-green-500";
+  };
+
+  const getPasswordStrengthText = () => {
+    if (passwordStrength.score <= 1) return "Weak";
+    if (passwordStrength.score <= 3) return "Medium";
+    return "Strong";
+  };
+
+  if (step === "otp") {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+        <div
+          ref={otpRef}
+          className="opacity-0 w-full max-w-md mx-auto rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 shadow-sm"
+        >
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-4">
+              <Shield className="w-8 h-8 text-zinc-600 dark:text-zinc-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">
+              Verify Your Email
+            </h2>
+            <p className="text-zinc-600 dark:text-zinc-300 text-sm">
+              We've sent a 6-digit code to{" "}
+              <span className="font-medium">{formData.email}</span>
+            </p>
+          </div>
+
+          <form onSubmit={handleOtpSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Enter OTP
+              </label>
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setOtp(value);
+                  if (errors.otp) {
+                    setErrors((prev) => ({ ...prev, otp: undefined }));
+                  }
+                }}
+                placeholder="123456"
+                className={`w-full px-4 py-3 rounded-xl border text-center text-lg font-mono tracking-widest ${
+                  errors.otp
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+                maxLength={6}
+              />
+              {errors.otp && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  {errors.otp}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || otp.length !== 6}
+              className="w-full rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-6 py-3 font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <UserCheck size={18} />
+                  Verify & Complete Signup
+                </>
+              )}
+            </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setStep("signup")}
+                className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              >
+                ← Back to signup
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+      <div
+        ref={formRef}
+        className="opacity-0 translate-y-6 w-full max-w-md mx-auto rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 shadow-sm"
+      >
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-4">
+            <MessageSquare className="w-8 h-8 text-zinc-600 dark:text-zinc-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">
+            Join Ping
+          </h2>
+          <p className="text-zinc-600 dark:text-zinc-300 text-sm">
+            Create your account to start connecting
+          </p>
+        </div>
+
+        <form onSubmit={handleSignupSubmit} className="space-y-6">
+          {/* Username */}
+          <div className="form-field opacity-0 translate-y-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Username
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => handleInputChange("username", e.target.value)}
+                placeholder="johndoe"
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${
+                  errors.username
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+              />
+            </div>
+            {errors.username && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.username}
+              </p>
+            )}
+          </div>
+
+          {/* Full Name */}
+          <div className="form-field opacity-0 translate-y-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Full Name
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => handleInputChange("fullName", e.target.value)}
+                placeholder="John Doe"
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${
+                  errors.fullName
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+              />
+            </div>
+            {errors.fullName && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.fullName}
+              </p>
+            )}
+          </div>
+
+          {/* Email */}
+          <div className="form-field opacity-0 translate-y-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Email Address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                placeholder="john@example.com"
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${
+                  errors.email
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+              />
+            </div>
+            {errors.email && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.email}
+              </p>
+            )}
+          </div>
+
+          {/* Phone */}
+          <div className="form-field opacity-0 translate-y-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Phone Number
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleInputChange("phone", e.target.value)}
+                placeholder="+1 (555) 123-4567"
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${
+                  errors.phone
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+              />
+            </div>
+            {errors.phone && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.phone}
+              </p>
+            )}
+          </div>
+
+          {/* Password */}
+          <div className="form-field opacity-0 translate-y-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                placeholder="Create a strong password"
+                className={`w-full pl-11 pr-11 py-3 rounded-xl border ${
+                  errors.password
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            
+            {/* Password Strength Indicator */}
+            {formData.password && (
+              <div className="mt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${getPasswordStrengthColor()}`}
+                      style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                    {getPasswordStrengthText()}
+                  </span>
+                </div>
+                
+                {passwordStrength.isValid ? (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                    <Check size={12} />
+                    Password meets all requirements
+                  </div>
+                ) : (
+                  passwordStrength.feedback.length > 0 && (
+                    <div className="space-y-1">
+                      {passwordStrength.feedback.map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 text-xs text-zinc-500">
+                          <X size={12} className="text-red-500" />
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+            
+            {errors.password && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.password}
+              </p>
+            )}
+          </div>
+
+          {/* Confirm Password */}
+          <div className="form-field opacity-0 translate-y-4">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                placeholder="Confirm your password"
+                className={`w-full pl-11 pr-11 py-3 rounded-xl border ${
+                  errors.confirmPassword
+                    ? "border-red-300 dark:border-red-700"
+                    : "border-zinc-300 dark:border-zinc-700"
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {errors.confirmPassword && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.confirmPassword}
+              </p>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <div className="form-field opacity-0 translate-y-4">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-6 py-3 font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  Create Account
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Login Link */}
+          <div className="form-field opacity-0 translate-y-4 text-center">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Already have an account?{" "}
+              <a
+                href="/auth/login"
+                className="font-medium text-zinc-900 dark:text-white hover:underline"
+              >
+                Sign in
+              </a>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
