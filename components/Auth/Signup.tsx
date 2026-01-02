@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
 import {
+    AtSign,
   User,
   Mail,
   Phone,
@@ -15,6 +16,7 @@ import {
   Shield,
   UserCheck,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 
 interface FormData {
@@ -52,6 +54,15 @@ export default function Signup() {
     feedback: [],
     isValid: false,
   });
+  const [usernameStatus, setUsernameStatus] = useState<{
+    isChecking: boolean;
+    isAvailable: boolean | null;
+    message: string;
+  }>({
+    isChecking: false,
+    isAvailable: null,
+    message: "",
+  });
 
   const formRef = useRef<HTMLDivElement>(null);
   const otpRef = useRef<HTMLDivElement>(null);
@@ -68,17 +79,16 @@ export default function Signup() {
       opacity: 1,
       y: 0,
       duration: 0.6,
-    })
-      .to(
-        ".form-field",
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.4,
-          stagger: 0.1,
-        },
-        "-=0.3"
-      );
+    }).to(
+      ".form-field",
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.4,
+        stagger: 0.1,
+      },
+      "-=0.3"
+    );
 
     return () => {
       tl.kill();
@@ -95,6 +105,67 @@ export default function Signup() {
       );
     }
   }, [step]);
+
+  // Username availability checker with debounce
+  useEffect(() => {
+    const checkUsername = async (username: string) => {
+      if (!username || username.length < 3) {
+        setUsernameStatus({
+          isChecking: false,
+          isAvailable: null,
+          message: "",
+        });
+        return;
+      }
+
+      setUsernameStatus(prev => ({ ...prev, isChecking: true }));
+
+      try {
+        console.log("Checking username:", username); // Debug log
+        
+        const response = await fetch("/api/auth/checkusername", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username }),
+        });
+
+        console.log("Response status:", response.status); // Debug log
+        
+        const data = await response.json();
+        console.log("Response data:", data); // Debug log
+
+        if (response.ok) {
+          setUsernameStatus({
+            isChecking: false,
+            isAvailable: true,
+            message: data.message,
+          });
+        } else {
+          setUsernameStatus({
+            isChecking: false,
+            isAvailable: false,
+            message: data.message,
+          });
+        }
+      } catch (error) {
+        console.error("Username check error:", error); // Debug log
+        setUsernameStatus({
+          isChecking: false,
+          isAvailable: null,
+          message: "Error checking username",
+        });
+      }
+    };
+
+    // Debounce username checking
+    const timeoutId = setTimeout(() => {
+      checkUsername(formData.username);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.username]);
 
   // Password strength checker
   useEffect(() => {
@@ -157,6 +228,8 @@ export default function Signup() {
       newErrors.username = "Username is required";
     } else if (formData.username.length < 3) {
       newErrors.username = "Username must be at least 3 characters";
+    } else if (usernameStatus.isAvailable === false) {
+      newErrors.username = "Username is not available";
     }
 
     if (!formData.fullName.trim()) {
@@ -193,15 +266,15 @@ export default function Signup() {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setIsLoading(true);
-    
+
     try {
       // Simulate API call to send OTP
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+
       // Move to OTP step
       setStep("otp");
     } catch (error) {
@@ -214,7 +287,7 @@ export default function Signup() {
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!otp.trim()) {
       setErrors({ otp: "Please enter the OTP" });
       return;
@@ -226,11 +299,11 @@ export default function Signup() {
     }
 
     setIsLoading(true);
-    
+
     try {
       // Simulate OTP verification
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+
       // Handle successful signup
       console.log("Signup successful!");
     } catch (error) {
@@ -337,7 +410,7 @@ export default function Signup() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
       <div
         ref={formRef}
-        className="opacity-0 translate-y-6 w-full max-w-md mx-auto rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-8 shadow-sm"
+        className="opacity-0 translate-y-6 w-full max-w-md mx-auto rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 py-8 px-6 shadow-sm"
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 mb-4">
@@ -358,19 +431,44 @@ export default function Signup() {
               Username
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
               <input
                 type="text"
                 value={formData.username}
                 onChange={(e) => handleInputChange("username", e.target.value)}
                 placeholder="johndoe"
-                className={`w-full pl-11 pr-4 py-3 rounded-xl border ${
+                className={`w-full pl-11 pr-11 py-3 rounded-xl border ${
                   errors.username
+                    ? "border-red-300 dark:border-red-700"
+                    : usernameStatus.isAvailable === true
+                    ? "border-green-300 dark:border-green-700"
+                    : usernameStatus.isAvailable === false
                     ? "border-red-300 dark:border-red-700"
                     : "border-zinc-300 dark:border-zinc-700"
                 } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
               />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {usernameStatus.isChecking ? (
+                  <Loader2 className="w-5 h-5 text-zinc-400 animate-spin" />
+                ) : usernameStatus.isAvailable === true ? (
+                  <Check className="w-5 h-5 text-green-500" />
+                ) : usernameStatus.isAvailable === false ? (
+                  <X className="w-5 h-5 text-red-500" />
+                ) : null}
+              </div>
             </div>
+            
+            {/* Username Status Message */}
+            {usernameStatus.message && !errors.username && (
+              <p className={`mt-2 text-sm ${
+                usernameStatus.isAvailable === true
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+              }`}>
+                {usernameStatus.message}
+              </p>
+            )}
+            
             {errors.username && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                 {errors.username}
@@ -482,7 +580,7 @@ export default function Signup() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            
+
             {/* Password Strength Indicator */}
             {formData.password && (
               <div className="mt-3">
@@ -490,14 +588,16 @@ export default function Signup() {
                   <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-300 ${getPasswordStrengthColor()}`}
-                      style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                      style={{
+                        width: `${(passwordStrength.score / 5) * 100}%`,
+                      }}
                     />
                   </div>
                   <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                     {getPasswordStrengthText()}
                   </span>
                 </div>
-                
+
                 {passwordStrength.isValid ? (
                   <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
                     <Check size={12} />
@@ -507,7 +607,10 @@ export default function Signup() {
                   passwordStrength.feedback.length > 0 && (
                     <div className="space-y-1">
                       {passwordStrength.feedback.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 text-xs text-zinc-500">
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 text-xs text-zinc-500"
+                        >
                           <X size={12} className="text-red-500" />
                           {item}
                         </div>
@@ -517,7 +620,7 @@ export default function Signup() {
                 )}
               </div>
             )}
-            
+
             {errors.password && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                 {errors.password}
@@ -535,7 +638,9 @@ export default function Signup() {
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 value={formData.confirmPassword}
-                onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("confirmPassword", e.target.value)
+                }
                 placeholder="Confirm your password"
                 className={`w-full pl-11 pr-11 py-3 rounded-xl border ${
                   errors.confirmPassword
