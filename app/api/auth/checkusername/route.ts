@@ -5,7 +5,6 @@ export async function POST(request: Request) {
     try {
         const { username } = await request.json();
 
-        console.log("Checking username:", username); // Debug log
 
         if (!username) {
             return NextResponse.json({ error: "Username is required" }, { status: 400 });
