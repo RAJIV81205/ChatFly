@@ -327,8 +327,12 @@ export default function Signup() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Signup failed");
+        alert(data.error)
+        throw new Error(data.error || "Signup failed");
+        setErrors(data.error);
       }
+
+      
 
       console.log("OTP Sent", data);
 

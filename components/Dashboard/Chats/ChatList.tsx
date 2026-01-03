@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, Plus, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
+import NewChatModal from "./NewChatModal";
 
 interface User {
   id: string;
@@ -46,6 +47,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
 
   useEffect(() => {
     fetchChats();
@@ -67,6 +69,13 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChatCreated = (chatId: string) => {
+    // Refresh the chat list to show the new chat
+    fetchChats();
+    // Select the new chat
+    onChatSelect(chatId);
   };
 
   const filteredChats = chats.filter(chat =>
@@ -159,7 +168,10 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
           <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
             Last chats
           </h3>
-          <button className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition">
+          <button 
+            onClick={() => setShowNewChatModal(true)}
+            className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition"
+          >
             <Plus className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
           </button>
         </div>
@@ -242,6 +254,12 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
           ))
         )}
       </div>
+
+      <NewChatModal
+        isOpen={showNewChatModal}
+        onClose={() => setShowNewChatModal(false)}
+        onChatCreated={handleChatCreated}
+      />
     </div>
   );
 };
