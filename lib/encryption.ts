@@ -27,7 +27,7 @@ export function encryptMessage(content: string): { content: string; contentIv: s
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   
-  const cipher = crypto.createCipher(ALGORITHM, key);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(content, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   
@@ -42,8 +42,9 @@ export function encryptMessage(content: string): { content: string; contentIv: s
  */
 export function decryptMessage(encryptedContent: string, iv: string): string {
   const key = getEncryptionKey();
+  const ivBuffer = Buffer.from(iv, 'hex');
   
-  const decipher = crypto.createDecipher(ALGORITHM, key);
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer);
   let decrypted = decipher.update(encryptedContent, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
   
@@ -57,7 +58,7 @@ export function encryptFileUrl(url: string): { fileUrl: string; fileUrlIv: strin
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   
-  const cipher = crypto.createCipher(ALGORITHM, key);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(url, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   
@@ -72,8 +73,9 @@ export function encryptFileUrl(url: string): { fileUrl: string; fileUrlIv: strin
  */
 export function decryptFileUrl(encryptedUrl: string, iv: string): string {
   const key = getEncryptionKey();
+  const ivBuffer = Buffer.from(iv, 'hex');
   
-  const decipher = crypto.createDecipher(ALGORITHM, key);
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer);
   let decrypted = decipher.update(encryptedUrl, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
   
@@ -87,7 +89,7 @@ export function encryptFileName(fileName: string): { fileName: string; fileNameI
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   
-  const cipher = crypto.createCipher(ALGORITHM, key);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(fileName, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   
@@ -102,14 +104,21 @@ export function encryptFileName(fileName: string): { fileName: string; fileNameI
  */
 export function decryptFileName(encryptedFileName: string, iv: string): string {
   const key = getEncryptionKey();
+  const ivBuffer = Buffer.from(iv, 'hex');
   
-  const decipher = crypto.createDecipher(ALGORITHM, key);
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer);
   let decrypted = decipher.update(encryptedFileName, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
   
   return decrypted;
 }
 
+/**
+ * Decrypt message content (simplified version for API compatibility)
+ */
+export function decrypt(encryptedContent: string, iv: string): string {
+  return decryptMessage(encryptedContent, iv);
+}
 /**
  * Generate a new encryption key (for setup)
  */

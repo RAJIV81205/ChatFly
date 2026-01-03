@@ -1,4 +1,4 @@
-import { prisma } from '../prisma';
+import prisma from '../prisma';
 import { 
   encryptMessage, 
   decryptMessage, 
@@ -120,8 +120,8 @@ export async function getConversationMessages(
     }),
   });
   
-  // Decrypt messages
-  return messages.map((message: any) => ({
+  // Decrypt messages and reverse to show oldest first
+  const decryptedMessages = messages.map((message: any) => ({
     ...message,
     content: decryptMessage(message.content, message.contentIv),
     files: message.files.map((file: any) => ({
@@ -129,7 +129,9 @@ export async function getConversationMessages(
       fileName: decryptFileName(file.fileName, file.fileNameIv),
       fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv),
     })),
-  }));
+  })).reverse();
+  
+  return decryptedMessages;
 }
 
 /**

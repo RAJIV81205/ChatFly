@@ -1,9 +1,7 @@
-const page = () => {
-    return (
-        <div>
-            Enter
-        </div>
-    );
-}
+import ChatInterface from "@/components/Dashboard/Chats/ChatInterface";
 
-export default page;
+const DashboardPage = () => {
+    return <ChatInterface />;
+};
+
+export default DashboardPage;

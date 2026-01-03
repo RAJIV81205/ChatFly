@@ -1,0 +1,379 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Send, Phone, Video, MoreHorizontal, Paperclip, Smile } from "lucide-react";
+import Image from "next/image";
+
+interface User {
+  id: string;
+  fullName: string;
+  username: string;
+  profilePicUrl: string | null;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  sender: User;
+  createdAt: string;
+  readReceipts: Array<{
+    id: string;
+    userId: string;
+    readAt: string;
+    user: {
+      id: string;
+      fullName: string;
+    };
+  }>;
+}
+
+interface Conversation {
+  id: string;
+  type: 'PRIVATE' | 'GROUP';
+  name: string;
+  avatar: string | null;
+  members: Array<{
+    id: string;
+    name: string;
+    username: string;
+    avatar: string | null;
+    isAdmin: boolean;
+  }>;
+}
+
+interface ChatWindowProps {
+  chatId: string | null;
+  currentUserId: string | null;
+}
+
+const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatId) {
+      fetchMessages();
+    }
+  }, [chatId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const fetchMessages = async () => {
+    if (!chatId) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/chats/${chatId}/messages`);
+      const data = await response.json();
+
+      if (data.success) {
+        setMessages(data.messages);
+        setConversation(data.conversation);
+      } else {
+        console.error('Failed to fetch messages:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !chatId || !currentUserId || sending) return;
+
+    setSending(true);
+    const messageContent = newMessage.trim();
+    setNewMessage("");
+
+    try {
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: messageContent,
+          senderId: currentUserId,
+          conversationId: chatId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh messages to get the new one
+        await fetchMessages();
+      } else {
+        console.error('Failed to send message:', data.error);
+        setNewMessage(messageContent); // Restore message on error
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setNewMessage(messageContent); // Restore message on error
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+  };
+
+  const shouldShowDateSeparator = (currentMessage: Message, previousMessage: Message | null) => {
+    if (!previousMessage) return true;
+    
+    const currentDate = new Date(currentMessage.createdAt).toDateString();
+    const previousDate = new Date(previousMessage.createdAt).toDateString();
+    
+    return currentDate !== previousDate;
+  };
+
+  if (!chatId) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">💬</span>
+          </div>
+          <h3 className="text-lg font-medium text-zinc-900 dark:text-white mb-2">
+            Select a chat to start messaging
+          </h3>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Choose from your existing conversations or start a new one
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="w-6 h-6 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950">
+      {/* Header */}
+      {conversation && (
+        <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {conversation.avatar ? (
+                <Image
+                  src={conversation.avatar}
+                  alt={conversation.name}
+                  width={40}
+                  height={40}
+                  className="rounded-full"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                  <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                    {conversation.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div>
+                <h2 className="font-semibold text-zinc-900 dark:text-white">
+                  {conversation.name}
+                </h2>
+                {conversation.type === 'GROUP' ? (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {conversation.members.length} participants
+                  </p>
+                ) : (
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    You, 11:26 AM
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
+                <Phone className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+              </button>
+              <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
+                <Video className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+              </button>
+              <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
+                <MoreHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-6 mt-4">
+            <button className="pb-2 border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-medium">
+              Messages
+            </button>
+            <button className="pb-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300">
+              Participants
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {messages.map((message, index) => {
+          const isOwnMessage = message.senderId === currentUserId;
+          const previousMessage = index > 0 ? messages[index - 1] : null;
+          const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
+
+          return (
+            <div key={message.id}>
+              {showDateSeparator && (
+                <div className="flex items-center justify-center my-6">
+                  <div className="bg-zinc-200 dark:bg-zinc-800 px-3 py-1 rounded-full">
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                      {formatDate(message.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className={`flex gap-3 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                {!isOwnMessage && (
+                  <div className="shrink-0">
+                    {message.sender.profilePicUrl ? (
+                      <Image
+                        src={message.sender.profilePicUrl}
+                        alt={message.sender.fullName}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                          {message.sender.fullName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-first' : ''}`}>
+                  {!isOwnMessage && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                      {message.sender.fullName}, {formatTime(message.createdAt)}
+                    </p>
+                  )}
+                  
+                  <div
+                    className={`px-4 py-2 rounded-2xl ${
+                      isOwnMessage
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                  </div>
+
+                  {isOwnMessage && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 text-right">
+                      {formatTime(message.createdAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Message Input */}
+      <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
+        <form onSubmit={sendMessage} className="flex items-end gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                Robert is typing
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Write your message..."
+                disabled={sending}
+                className="w-full px-4 py-3 pr-20 bg-zinc-100 dark:bg-zinc-800 border-0 rounded-xl text-sm text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <button
+                  type="button"
+                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition"
+                >
+                  <Paperclip className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                </button>
+                <button
+                  type="button"
+                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition"
+                >
+                  <Smile className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <button
+            type="submit"
+            disabled={!newMessage.trim() || sending}
+            className="p-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white rounded-xl transition disabled:cursor-not-allowed"
+          >
+            {sending ? (
+              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default ChatWindow;
