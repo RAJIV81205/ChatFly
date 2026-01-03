@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
-import { email } from "zod";
 
 export async function POST(request: Request) {
     try {
         const { username } = await request.json();
 
-
         if (!username) {
             return NextResponse.json({ error: "Username is required" }, { status: 400 });
         }
 
-        const user = await prisma.user.findUnique({
+        const user = await prisma.user.findFirst({
             where: {
-                emailVerified: true,
-                username
+                username,
+                emailVerified: true
             }
         });
 
