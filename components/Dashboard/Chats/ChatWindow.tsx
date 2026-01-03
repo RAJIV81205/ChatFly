@@ -111,7 +111,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   }, [chatId]);
 
   useEffect(() => {
-    scrollToBottom();
+    // Use setTimeout to ensure DOM has updated before scrolling
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -134,6 +139,11 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         if (data.conversation?.type === 'PRIVATE') {
           await fetchUserLastSeen(data.conversation.members);
         }
+        
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
       } else {
         console.error('Failed to fetch messages:', data.error);
       }
