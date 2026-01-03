@@ -48,6 +48,8 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [errors, setErrors] = useState<Partial<FormData & { otp: string }>>({});
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
     score: 0,
@@ -105,6 +107,17 @@ export default function Signup() {
       );
     }
   }, [step]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
 
   // Username availability checker with debounce
   useEffect(() => {
@@ -296,6 +309,7 @@ export default function Signup() {
 
       // Move to OTP step
       setStep("otp");
+      setResendCooldown(60); // 60 second cooldown
     } catch (error) {
       console.error("Signup error:", error);
       // Handle error
@@ -320,16 +334,78 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      // Simulate OTP verification
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const response = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          otp: otp,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "OTP verification failed");
+      }
 
       // Handle successful signup
-      console.log("Signup successful!");
+      console.log("Signup successful!", data);
+      
+      // You can redirect to dashboard or login page here
+      // window.location.href = "/dashboard";
+      // or use Next.js router
+      alert("Account created successfully! You can now log in.");
+      
     } catch (error) {
       console.error("OTP verification error:", error);
-      setErrors({ otp: "Invalid OTP. Please try again." });
+      setErrors({ 
+        otp: error instanceof Error ? error.message : "Invalid OTP. Please try again." 
+      });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+
+    setIsResendingOtp(true);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to resend OTP");
+      }
+
+      setResendCooldown(60); // Reset cooldown
+      setOtp(""); // Clear current OTP
+      
+      // Show success message (you could use a toast notification here)
+      alert("OTP sent successfully!");
+      
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      alert(error instanceof Error ? error.message : "Failed to resend OTP");
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
@@ -410,14 +486,34 @@ export default function Signup() {
               )}
             </button>
 
-            <div className="text-center">
+            <div className="text-center space-y-3">
               <button
                 type="button"
-                onClick={() => setStep("signup")}
-                className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                onClick={handleResendOtp}
+                disabled={resendCooldown > 0 || isResendingOtp}
+                className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ← Back to signup
+                {isResendingOtp ? (
+                  <span className="flex items-center gap-2 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </span>
+                ) : resendCooldown > 0 ? (
+                  `Resend OTP in ${resendCooldown}s`
+                ) : (
+                  "Resend OTP"
+                )}
               </button>
+              
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setStep("signup")}
+                  className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                >
+                  ← Back to signup
+                </button>
+              </div>
             </div>
           </form>
         </div>

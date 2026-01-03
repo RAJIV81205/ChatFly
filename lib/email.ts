@@ -19,6 +19,13 @@ export async function sendOTPEmail(email: string, otp: string) {
       },
     ],
     subject: "Your Ping verification code",
+
+    // 🔥 IMPORTANT
+    tags: ["transactional", "otp"],
+    headers: {
+      "X-Mailin-Tag": "transactional",
+    },
+
     textContent: `
 Your Ping verification code is: ${otp}
 

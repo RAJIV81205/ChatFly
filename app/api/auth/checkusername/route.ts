@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
+import { email } from "zod";
 
 export async function POST(request: Request) {
     try {
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
 
         const user = await prisma.user.findUnique({
             where: {
+                emailVerified: true,
                 username
             }
         });

@@ -7,6 +7,58 @@ import { sendOTPEmail } from "@/lib/email";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const { action = "signup" } = body;
+
+    /* =====================================================
+       🔁 RESEND OTP FLOW
+    ====================================================== */
+    if (action === "resend") {
+      const { email } = body;
+
+      if (!email) {
+        return NextResponse.json(
+          { error: "Email is required" },
+          { status: 400 }
+        );
+      }
+
+      const pendingUser = await prisma.user.findFirst({
+        where: {
+          email,
+          emailVerified: false,
+        },
+      });
+
+      if (!pendingUser) {
+        return NextResponse.json(
+          { error: "No pending verification for this email" },
+          { status: 404 }
+        );
+      }
+
+      // Delete old OTPs
+      await prisma.emailOTP.deleteMany({ where: { email } });
+
+      // Generate new OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      await prisma.emailOTP.create({
+        data: { email, otpHash, expiresAt },
+      });
+
+      await sendOTPEmail(email, otp);
+
+      return NextResponse.json(
+        { message: "OTP resent successfully" },
+        { status: 200 }
+      );
+    }
+
+    /* =====================================================
+       🧾 SIGNUP FLOW
+    ====================================================== */
 
     /* ---------- ZOD VALIDATION ---------- */
     const parsed = signupSchema.safeParse(body);
@@ -23,42 +75,52 @@ export async function POST(request: Request) {
 
     const { username, fullName, email, phone, password } = parsed.data;
 
-    /* ---------- CHECK DUPLICATES ---------- */
-    const existingUser = await prisma.user.findFirst({
+    /* ---------- BLOCK VERIFIED USERS ---------- */
+    const verifiedUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          { username },
-          { email },
-          { phone },
-        ],
+        emailVerified: true,
+        OR: [{ username }, { email }, { phone }],
       },
     });
 
-    if (existingUser) {
-      if (existingUser.username === username) {
-        return NextResponse.json(
-          { error: "Username already exists" },
-          { status: 409 }
-        );
-      }
-      if (existingUser.email === email) {
-        return NextResponse.json(
-          { error: "Email already exists" },
-          { status: 409 }
-        );
-      }
-      if (existingUser.phone === phone) {
-        return NextResponse.json(
-          { error: "Phone number already exists" },
-          { status: 409 }
-        );
-      }
+    if (verifiedUser) {
+      if (verifiedUser.username === username)
+        return NextResponse.json({ error: "Username already exists" }, { status: 409 });
+      if (verifiedUser.email === email)
+        return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+      if (verifiedUser.phone === phone)
+        return NextResponse.json({ error: "Phone already exists" }, { status: 409 });
     }
 
-    /* ---------- HASH PASSWORD ---------- */
-    const hashedPassword = await bcrypt.hash(password, 10);
+    /* ---------- HANDLE UNVERIFIED USER ---------- */
+    const pendingUser = await prisma.user.findFirst({
+      where: { email, emailVerified: false },
+    });
+
+    if (pendingUser) {
+      const latestOtp = await prisma.emailOTP.findFirst({
+        where: { email },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // OTP still valid → do NOT overwrite user
+      if (latestOtp && latestOtp.expiresAt > new Date()) {
+        return NextResponse.json(
+          { error: "OTP already sent. Please verify your email." },
+          { status: 409 }
+        );
+      }
+
+      // OTP expired → clean user + OTP
+      await prisma.$transaction([
+        prisma.emailOTP.deleteMany({ where: { email } }),
+        prisma.user.delete({ where: { id: pendingUser.id } }),
+      ]);
+    }
 
     /* ---------- CREATE USER ---------- */
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const user = await prisma.user.create({
       data: {
         username,
@@ -70,37 +132,21 @@ export async function POST(request: Request) {
       },
     });
 
-    /* ---------- SEND OTP ---------- */
-    // Generate 6-digit OTP
+    /* ---------- CREATE & SEND OTP ---------- */
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Hash OTP for storage
     const otpHash = await bcrypt.hash(otp, 10);
-    
-    // Set expiration time (10 minutes from now)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    
-    // Delete any existing OTP for this email
-    await prisma.emailOTP.deleteMany({
-      where: { email },
-    });
-    
-    // Save OTP to database
+
     await prisma.emailOTP.create({
-      data: {
-        email,
-        otpHash,
-        expiresAt,
-      },
+      data: { email, otpHash, expiresAt },
     });
-    
-    // Send OTP email
+
     try {
       await sendOTPEmail(email, otp);
     } catch (emailError) {
-      console.error("Failed to send OTP email:", emailError);
-      // Delete the user if email fails to send
       await prisma.user.delete({ where: { id: user.id } });
+      await prisma.emailOTP.deleteMany({ where: { email } });
+
       return NextResponse.json(
         { error: "Failed to send verification email" },
         { status: 500 }
@@ -112,7 +158,7 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(error);
+    console.error("Signup error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
