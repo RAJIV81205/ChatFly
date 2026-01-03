@@ -110,7 +110,8 @@ model ConversationMember {
 
 model Message {
   id             String @id @default(uuid())
-  content        String
+  content        String // Encrypted content
+  contentIv      String // Initialization vector for content encryption
   senderId       String
   conversationId String
 
@@ -120,6 +121,7 @@ model Message {
   sender       User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
   conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   readReceipts ReadReceipt[]
+  files        MessageFile[]
 }
 
 /**
@@ -138,4 +140,25 @@ model ReadReceipt {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId])
+}
+
+/**
+ * =========================
+ * MESSAGE FILES
+ * =========================
+ */
+
+model MessageFile {
+  id        String @id @default(uuid())
+  messageId String
+  fileName  String // Encrypted filename
+  fileNameIv String // IV for filename encryption
+  fileUrl   String // Encrypted file URL
+  fileUrlIv String // IV for file URL encryption
+  fileSize  Int?
+  mimeType  String?
+
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
 }
