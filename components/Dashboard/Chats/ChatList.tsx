@@ -215,6 +215,11 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                   {chat.type === 'PRIVATE' && chat.lastSeen && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-zinc-900 rounded-full" />
                   )}
+                  {chat.type === 'GROUP' && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">{chat.members.length}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Chat Info */}
@@ -230,9 +235,14 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                     )}
                   </div>
                   
-                  {chat.type === 'PRIVATE' && (
+                  {/* {chat.type === 'PRIVATE' && (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       typing...
+                    </p>
+                  )} */}
+                  {chat.type === 'GROUP' && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                      {chat.members.length} participants
                     </p>
                   )}
 

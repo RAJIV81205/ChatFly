@@ -222,9 +222,10 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
                     {conversation.members.length} participants
                   </p>
                 ) : (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    You, 11:26 AM
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">online</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -242,15 +243,17 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-6 mt-4">
-            <button className="pb-2 border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-medium">
-              Messages
-            </button>
-            <button className="pb-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300">
-              Participants
-            </button>
-          </div>
+          {/* Tabs - Only show for group chats */}
+          {conversation.type === 'GROUP' && (
+            <div className="flex gap-6 mt-4">
+              <button className="pb-2 border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-medium">
+                Messages
+              </button>
+              <button className="pb-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300">
+                Participants
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -295,7 +298,7 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
                 )}
 
                 <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-first' : ''}`}>
-                  {!isOwnMessage && (
+                  {!isOwnMessage && conversation?.type === 'GROUP' && (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       {message.sender.fullName}, {formatTime(message.createdAt)}
                     </p>
@@ -316,6 +319,12 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
                       {formatTime(message.createdAt)}
                     </p>
                   )}
+                  
+                  {!isOwnMessage && conversation?.type === 'PRIVATE' && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      {formatTime(message.createdAt)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -328,17 +337,27 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
       <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
         <form onSubmit={sendMessage} className="flex items-end gap-3">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+          {/* <div className="flex items-center gap-2 mb-2">
+            {conversation?.type === 'PRIVATE' ? (
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                {conversation.name} is typing
+              </span>
+            ) : (
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
                 Robert is typing
               </span>
-            </div>
+            )}
+          </div> */}
             <div className="relative">
               <input
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Write your message..."
+                placeholder={
+                  conversation?.type === 'PRIVATE' 
+                    ? `Message ${conversation.name}...` 
+                    : "Write your message..."
+                }
                 disabled={sending}
                 className="w-full px-4 py-3 pr-20 bg-zinc-100 dark:bg-zinc-800 border-0 rounded-xl text-sm text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
               />

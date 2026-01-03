@@ -156,7 +156,7 @@ export async function GET(
           isAdmin: member.isAdmin
         }))
       },
-      messages: decryptedMessages, // Already reversed in service
+      messages: decryptedMessages.reverse(), // Reverse to show oldest first (newest at bottom)
       hasMore: messages.length === limit
     });
 
