@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Phone, Video, MoreHorizontal, Paperclip, Smile } from "lucide-react";
 import Image from "next/image";
+import { useSocket } from "@/lib/hooks/useSocket";
 
 interface User {
   id: string;
@@ -45,20 +46,59 @@ interface Conversation {
 interface ChatWindowProps {
   chatId: string | null;
   currentUserId: string | null;
+  token?: string;
 }
 
-const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
+const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Socket integration
+  const {
+    isConnected,
+    sendMessage: socketSendMessage,
+    startTyping,
+    stopTyping,
+    markMessageRead,
+    joinConversation,
+    leaveConversation,
+    isUserOnline,
+    getTypingUsersInConversation
+  } = useSocket({
+    token,
+    onNewMessage: (message) => {
+      setMessages(prev => [...prev, message]);
+      // Mark message as read if it's not from current user
+      if (message.senderId !== currentUserId && chatId) {
+        markMessageRead(message.id, chatId);
+      }
+    },
+    onUserTyping: (data) => {
+      // Handle typing indicators
+      console.log(`${data.user.fullName} is typing in ${data.conversationId}`);
+    },
+    onUserStoppedTyping: (data) => {
+      console.log(`${data.userId} stopped typing in ${data.conversationId}`);
+    }
+  });
 
   useEffect(() => {
     if (chatId) {
       fetchMessages();
+      joinConversation(chatId);
     }
+    
+    return () => {
+      if (chatId) {
+        leaveConversation(chatId);
+      }
+    };
   }, [chatId]);
 
   useEffect(() => {
@@ -98,33 +138,76 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
     const messageContent = newMessage.trim();
     setNewMessage("");
 
+    // Stop typing indicator
+    if (isTyping) {
+      stopTyping(chatId);
+      setIsTyping(false);
+    }
+
     try {
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: messageContent,
-          senderId: currentUserId,
-          conversationId: chatId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Refresh messages to get the new one
-        await fetchMessages();
+      // Use WebSocket if connected, fallback to HTTP
+      if (isConnected) {
+        socketSendMessage(chatId, messageContent);
       } else {
-        console.error('Failed to send message:', data.error);
-        setNewMessage(messageContent); // Restore message on error
+        // Fallback to HTTP API
+        const response = await fetch('/api/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: messageContent,
+            senderId: currentUserId,
+            conversationId: chatId,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          await fetchMessages();
+        } else {
+          console.error('Failed to send message:', data.error);
+          setNewMessage(messageContent);
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setNewMessage(messageContent); // Restore message on error
+      setNewMessage(messageContent);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewMessage(value);
+
+    if (!chatId) return;
+
+    // Handle typing indicators
+    if (value.trim() && !isTyping) {
+      setIsTyping(true);
+      startTyping(chatId);
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set new timeout to stop typing
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTyping) {
+        setIsTyping(false);
+        stopTyping(chatId);
+      }
+    }, 2000);
+
+    // Stop typing if input is empty
+    if (!value.trim() && isTyping) {
+      setIsTyping(false);
+      stopTyping(chatId);
     }
   };
 
@@ -223,8 +306,16 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
                   </p>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">online</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      conversation.members.some(member => 
+                        member.id !== currentUserId && isUserOnline(member.id)
+                      ) ? 'bg-green-500' : 'bg-gray-400'
+                    }`} />
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {conversation.members.some(member => 
+                        member.id !== currentUserId && isUserOnline(member.id)
+                      ) ? 'online' : 'offline'}
+                    </span>
                   </div>
                 )}
               </div>
@@ -335,24 +426,25 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
 
       {/* Message Input */}
       <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
+        {/* Typing Indicators */}
+        {chatId && getTypingUsersInConversation(chatId).length > 0 && (
+          <div className="mb-2">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              {getTypingUsersInConversation(chatId).length === 1 
+                ? `Someone is typing...`
+                : `${getTypingUsersInConversation(chatId).length} people are typing...`
+              }
+            </span>
+          </div>
+        )}
+        
         <form onSubmit={sendMessage} className="flex items-end gap-3">
           <div className="flex-1">
-          {/* <div className="flex items-center gap-2 mb-2">
-            {conversation?.type === 'PRIVATE' ? (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {conversation.name} is typing
-              </span>
-            ) : (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                Robert is typing
-              </span>
-            )}
-          </div> */}
             <div className="relative">
               <input
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleInputChange}
                 placeholder={
                   conversation?.type === 'PRIVATE' 
                     ? `Message ${conversation.name}...` 
@@ -390,6 +482,13 @@ const ChatWindow = ({ chatId, currentUserId }: ChatWindowProps) => {
             )}
           </button>
         </form>
+        
+        {/* Connection Status */}
+        {!isConnected && (
+          <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            Real-time messaging unavailable - using fallback mode
+          </div>
+        )}
       </div>
     </div>
   );

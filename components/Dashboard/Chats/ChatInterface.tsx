@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import ChatList from "./ChatList";
 import ChatWindow from "./ChatWindow";
+import { getTokenForSocket } from "@/lib/utils/auth";
 
 interface User {
   id: string;
@@ -15,8 +16,17 @@ interface User {
 const ChatInterface = () => {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // Get JWT token for WebSocket authentication
+    const fetchToken = async () => {
+      const authToken = await getTokenForSocket();
+      setToken(authToken);
+    };
+    
+    fetchToken();
+    
     // Get current user info from the chats API
     fetchCurrentUser();
   }, []);
@@ -47,6 +57,7 @@ const ChatInterface = () => {
       <ChatWindow 
         chatId={selectedChatId}
         currentUserId={currentUser?.id || null}
+        token={token || undefined}
       />
     </div>
   );

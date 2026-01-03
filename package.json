@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "websocket": "tsx server/index.ts",
+    "dev:all": "concurrently \"npm run dev\" \"npm run websocket\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
@@ -16,7 +18,9 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.16.0",
     "bcryptjs": "^3.0.3",
+    "concurrently": "^9.1.0",
     "dotenv": "^17.2.3",
+    "express": "^4.21.2",
     "gsap": "^3.14.2",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.562.0",
@@ -26,11 +30,15 @@
     "prisma": "^7.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "tsx": "^4.21.0",
     "zod": "^4.3.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/dotenv": "^8.2.0",
+    "@types/express": "^5.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
