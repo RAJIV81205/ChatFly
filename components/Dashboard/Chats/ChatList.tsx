@@ -213,7 +213,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                     </div>
                   )}
                   {chat.type === 'PRIVATE' && chat.lastSeen && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-zinc-900 rounded-full" />
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-500 border-2 border-white dark:border-zinc-900 rounded-full" />
                   )}
                   {chat.type === 'GROUP' && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center">

@@ -364,7 +364,32 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950">
+    <>
+      <style jsx>{`
+        @keyframes typingDot {
+          0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.4;
+          }
+          30% {
+            transform: translateY(-10px);
+            opacity: 1;
+          }
+        }
+        .typing-dot-1 {
+          animation: typingDot 1.4s infinite;
+          animation-delay: 0s;
+        }
+        .typing-dot-2 {
+          animation: typingDot 1.4s infinite;
+          animation-delay: 0.2s;
+        }
+        .typing-dot-3 {
+          animation: typingDot 1.4s infinite;
+          animation-delay: 0.4s;
+        }
+      `}</style>
+      <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950">
       {/* Header */}
       {conversation && (
         <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-6 py-4">
@@ -528,13 +553,24 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
         {/* Typing Indicators */}
         {chatId && getTypingUsersInConversation(chatId).length > 0 && (
-          <div className="mb-2">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              {getTypingUsersInConversation(chatId).length === 1 
-                ? `Someone is typing...`
-                : `${getTypingUsersInConversation(chatId).length} people are typing...`
-              }
-            </span>
+          <div className="mb-3 flex items-center gap-3">
+            <div className="shrink-0">
+              <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  {conversation?.type === 'PRIVATE' 
+                    ? conversation.name.charAt(0).toUpperCase()
+                    : '👥'
+                  }
+                </span>
+              </div>
+            </div>
+            <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-1"></div>
+                <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-2"></div>
+                <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-3"></div>
+              </div>
+            </div>
           </div>
         )}
         
@@ -591,6 +627,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

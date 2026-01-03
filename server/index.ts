@@ -35,8 +35,10 @@ const io = new Server(server, {
 });
 
 // Store online users and their socket connections
-const onlineUsers = new Map();
-const userSockets = new Map();
+// Changed to support multiple connections per user
+const onlineUsers = new Map(); // userId -> Set of socketIds
+const userSockets = new Map(); // socketId -> userId
+const socketData = new Map(); // socketId -> user data
 
 // Middleware to authenticate socket connections
 io.use(async (socket: Socket, next) => {
@@ -85,14 +87,18 @@ io.on('connection', async (socket: Socket) => {
 
   console.log(`User ${user.fullName} connected`);
 
-  // Add user to online users
-  onlineUsers.set(userId, {
-    socketId: authenticatedSocket.id,
-    lastSeen: new Date(),
-    typingIn: null,
-    user: user
-  });
+  // Add user to online users (support multiple connections)
+  if (!onlineUsers.has(userId)) {
+    onlineUsers.set(userId, new Set());
+  }
+  onlineUsers.get(userId).add(authenticatedSocket.id);
+  
   userSockets.set(authenticatedSocket.id, userId);
+  socketData.set(authenticatedSocket.id, {
+    user: user,
+    lastSeen: new Date(),
+    typingIn: null
+  });
 
   // Update user's lastSeen in database
   await prisma.user.update({
@@ -170,13 +176,24 @@ io.on('connection', async (socket: Socket) => {
       // Broadcast to conversation room
       io.to(`conversation:${conversationId}`).emit('new_message', messageData);
 
-      // Stop typing for this user
-      if (onlineUsers.get(userId)?.typingIn === conversationId) {
-        onlineUsers.get(userId).typingIn = null;
-        authenticatedSocket.to(`conversation:${conversationId}`).emit('user_stopped_typing', {
-          userId: userId,
-          conversationId: conversationId
+      // Stop typing for this user from this socket
+      const socketInfo = socketData.get(authenticatedSocket.id);
+      if (socketInfo?.typingIn === conversationId) {
+        socketInfo.typingIn = null;
+        
+        // Check if user is still typing from other sockets
+        const userSocketIds = onlineUsers.get(userId) || new Set();
+        const isStillTyping = Array.from(userSocketIds).some(socketId => {
+          const info = socketData.get(socketId);
+          return info && info.typingIn === conversationId;
         });
+
+        if (!isStillTyping) {
+          authenticatedSocket.to(`conversation:${conversationId}`).emit('user_stopped_typing', {
+            userId: userId,
+            conversationId: conversationId
+          });
+        }
       }
 
     } catch (error) {
@@ -189,9 +206,10 @@ io.on('connection', async (socket: Socket) => {
   authenticatedSocket.on('typing_start', (data: any) => {
     const { conversationId } = data;
     
-    // Update user's typing status
-    if (onlineUsers.has(userId)) {
-      onlineUsers.get(userId).typingIn = conversationId;
+    // Update this socket's typing status
+    const socketInfo = socketData.get(authenticatedSocket.id);
+    if (socketInfo) {
+      socketInfo.typingIn = conversationId;
     }
 
     // Broadcast to others in conversation
@@ -205,16 +223,26 @@ io.on('connection', async (socket: Socket) => {
   authenticatedSocket.on('typing_stop', (data: any) => {
     const { conversationId } = data;
     
-    // Update user's typing status
-    if (onlineUsers.has(userId)) {
-      onlineUsers.get(userId).typingIn = null;
+    // Update this socket's typing status
+    const socketInfo = socketData.get(authenticatedSocket.id);
+    if (socketInfo) {
+      socketInfo.typingIn = null;
     }
 
-    // Broadcast to others in conversation
-    authenticatedSocket.to(`conversation:${conversationId}`).emit('user_stopped_typing', {
-      userId: userId,
-      conversationId: conversationId
+    // Only broadcast stop typing if no other sockets for this user are typing in this conversation
+    const userSocketIds = onlineUsers.get(userId) || new Set();
+    const isStillTyping = Array.from(userSocketIds).some(socketId => {
+      const info = socketData.get(socketId);
+      return info && info.typingIn === conversationId;
     });
+
+    if (!isStillTyping) {
+      // Broadcast to others in conversation
+      authenticatedSocket.to(`conversation:${conversationId}`).emit('user_stopped_typing', {
+        userId: userId,
+        conversationId: conversationId
+      });
+    }
   });
 
   // Handle message read receipts
@@ -269,30 +297,52 @@ io.on('connection', async (socket: Socket) => {
   authenticatedSocket.on('disconnect', async () => {
     console.log(`User ${user.fullName} disconnected`);
 
-    // Update last seen in database
-    await prisma.user.update({
-      where: { id: userId },
-      data: { lastSeen: new Date() }
-    });
+    // Remove this socket from user's connections
+    const userSocketIds = onlineUsers.get(userId);
+    if (userSocketIds) {
+      userSocketIds.delete(authenticatedSocket.id);
+      
+      // If no more connections for this user, remove from online users
+      if (userSocketIds.size === 0) {
+        onlineUsers.delete(userId);
+        
+        // Update last seen in database only when fully offline
+        await prisma.user.update({
+          where: { id: userId },
+          data: { lastSeen: new Date() }
+        });
 
-    // Remove from online users
-    onlineUsers.delete(userId);
+        // Broadcast user offline status to their conversations
+        conversations.forEach((conv: any) => {
+          authenticatedSocket.to(`conversation:${conv.id}`).emit('user_offline', {
+            userId: userId,
+            lastSeen: new Date()
+          });
+        });
+      }
+    }
+
+    // Clean up socket data
     userSockets.delete(authenticatedSocket.id);
+    socketData.delete(authenticatedSocket.id);
 
-    // Broadcast user offline status to their conversations
+    // Stop any typing indicators for this socket
     conversations.forEach((conv: any) => {
-      authenticatedSocket.to(`conversation:${conv.id}`).emit('user_offline', {
-        userId: userId,
-        lastSeen: new Date()
-      });
-    });
+      // Check if user is still typing from other sockets
+      const userSocketIds = onlineUsers.get(userId);
+      if (userSocketIds) {
+        const isStillTyping = Array.from(userSocketIds).some(socketId => {
+          const info = socketData.get(socketId);
+          return info && info.typingIn === conv.id;
+        });
 
-    // Stop any typing indicators
-    conversations.forEach((conv: any) => {
-      authenticatedSocket.to(`conversation:${conv.id}`).emit('user_stopped_typing', {
-        userId: userId,
-        conversationId: conv.id
-      });
+        if (!isStillTyping) {
+          authenticatedSocket.to(`conversation:${conv.id}`).emit('user_stopped_typing', {
+            userId: userId,
+            conversationId: conv.id
+          });
+        }
+      }
     });
   });
 });
@@ -302,13 +352,27 @@ app.get('/api/conversation/:id/online-users', (req: any, res: any) => {
   const conversationId = req.params.id;
   const onlineInConversation = [];
 
-  for (const [userId, userData] of onlineUsers.entries()) {
-    onlineInConversation.push({
-      userId: userId,
-      user: (userData as any).user,
-      lastSeen: (userData as any).lastSeen,
-      isTyping: (userData as any).typingIn === conversationId
-    });
+  for (const [userId, socketIds] of onlineUsers.entries()) {
+    if (socketIds.size > 0) {
+      // Get user data from any of their sockets
+      const firstSocketId = Array.from(socketIds)[0];
+      const socketInfo = socketData.get(firstSocketId);
+      
+      if (socketInfo) {
+        // Check if user is typing in this conversation from any socket
+        const isTyping = Array.from(socketIds).some(socketId => {
+          const info = socketData.get(socketId);
+          return info && info.typingIn === conversationId;
+        });
+
+        onlineInConversation.push({
+          userId: userId,
+          user: socketInfo.user,
+          lastSeen: socketInfo.lastSeen,
+          isTyping: isTyping
+        });
+      }
+    }
   }
 
   res.json({ onlineUsers: onlineInConversation });
