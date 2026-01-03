@@ -51,7 +51,10 @@ export async function POST(request: Request) {
       await sendOTPEmail(email, otp);
 
       return NextResponse.json(
-        { message: "OTP resent successfully" },
+        { 
+          message: "OTP resent successfully",
+          otpExpiresAt: expiresAt.toISOString()
+        },
         { status: 200 }
       );
     }
@@ -154,7 +157,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { message: "User created. OTP sent.", userId: user.id },
+      { 
+        message: "User created. OTP sent.", 
+        userId: user.id,
+        otpExpiresAt: expiresAt.toISOString()
+      },
       { status: 201 }
     );
   } catch (error) {

@@ -45,6 +45,9 @@ export default function Signup() {
     confirmPassword: "",
   });
   const [otp, setOtp] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState<Date | null>(null);
+  const [otpTimeLeft, setOtpTimeLeft] = useState<number>(0);
+  const [isOtpExpired, setIsOtpExpired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +110,28 @@ export default function Signup() {
       );
     }
   }, [step]);
+
+  // OTP expiry timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (otpExpiresAt && step === "otp") {
+      interval = setInterval(() => {
+        const now = new Date();
+        const timeLeft = Math.max(0, Math.floor((otpExpiresAt.getTime() - now.getTime()) / 1000));
+        
+        setOtpTimeLeft(timeLeft);
+        
+        if (timeLeft === 0) {
+          setIsOtpExpired(true);
+          setErrors({ otp: "OTP has expired. Please request a new one." });
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
+    
+    return () => clearInterval(interval);
+  }, [otpExpiresAt, step]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -307,6 +332,12 @@ export default function Signup() {
 
       console.log("OTP Sent", data);
 
+      // Set OTP expiry time
+      if (data.otpExpiresAt) {
+        setOtpExpiresAt(new Date(data.otpExpiresAt));
+        setIsOtpExpired(false);
+      }
+
       // Move to OTP step
       setStep("otp");
       setResendCooldown(60); // 60 second cooldown
@@ -328,6 +359,11 @@ export default function Signup() {
 
     if (otp.length !== 6) {
       setErrors({ otp: "OTP must be 6 digits" });
+      return;
+    }
+
+    if (isOtpExpired) {
+      setErrors({ otp: "OTP has expired. Please request a new one." });
       return;
     }
 
@@ -381,11 +417,8 @@ export default function Signup() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: formData.username,
-          fullName: formData.fullName,
+          action: "resend",
           email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
         }),
       });
 
@@ -393,6 +426,12 @@ export default function Signup() {
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to resend OTP");
+      }
+
+      // Set new expiry time if provided
+      if (data.otpExpiresAt) {
+        setOtpExpiresAt(new Date(data.otpExpiresAt));
+        setIsOtpExpired(false);
       }
 
       setResendCooldown(60); // Reset cooldown
@@ -421,6 +460,12 @@ export default function Signup() {
     return "Strong";
   };
 
+  const formatTimeLeft = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   if (step === "otp") {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
@@ -439,6 +484,29 @@ export default function Signup() {
               We've sent a 6-digit code to{" "}
               <span className="font-medium">{formData.email}</span>
             </p>
+            
+            {/* OTP Timer */}
+            {otpExpiresAt && (
+              <div className={`mt-3 p-3 rounded-lg ${
+                isOtpExpired 
+                  ? "bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800" 
+                  : "bg-zinc-50 dark:bg-zinc-800"
+              }`}>
+                {isOtpExpired ? (
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <X className="w-4 h-4" />
+                    <span className="text-sm font-medium">OTP Expired - Please request a new one</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+                    <Shield className="w-4 h-4" />
+                    <span className="text-sm">
+                      Code expires in: <span className="font-mono font-medium text-zinc-900 dark:text-white">{formatTimeLeft(otpTimeLeft)}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleOtpSubmit} className="space-y-6">
@@ -460,9 +528,12 @@ export default function Signup() {
                 className={`w-full px-4 py-3 rounded-xl border text-center text-lg font-mono tracking-widest ${
                   errors.otp
                     ? "border-red-300 dark:border-red-700"
+                    : isOtpExpired
+                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950"
                     : "border-zinc-300 dark:border-zinc-700"
-                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent`}
+                } bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed`}
                 maxLength={6}
+                disabled={isOtpExpired}
               />
               {errors.otp && (
                 <p className="mt-2 text-sm text-red-600 dark:text-red-400">
@@ -473,11 +544,16 @@ export default function Signup() {
 
             <button
               type="submit"
-              disabled={isLoading || otp.length !== 6}
+              disabled={isLoading || otp.length !== 6 || isOtpExpired}
               className="w-full rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-6 py-3 font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : isOtpExpired ? (
+                <>
+                  <X size={18} />
+                  OTP Expired
+                </>
               ) : (
                 <>
                   <UserCheck size={18} />
@@ -500,6 +576,8 @@ export default function Signup() {
                   </span>
                 ) : resendCooldown > 0 ? (
                   `Resend OTP in ${resendCooldown}s`
+                ) : isOtpExpired ? (
+                  "Send New OTP"
                 ) : (
                   "Resend OTP"
                 )}
@@ -508,7 +586,13 @@ export default function Signup() {
               <div>
                 <button
                   type="button"
-                  onClick={() => setStep("signup")}
+                  onClick={() => {
+                    setStep("signup");
+                    setOtp("");
+                    setOtpExpiresAt(null);
+                    setIsOtpExpired(false);
+                    setErrors({});
+                  }}
                   className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
                 >
                   ← Back to signup
