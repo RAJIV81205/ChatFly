@@ -7,6 +7,7 @@ export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
+    /* ---------- VALIDATION ---------- */
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -14,49 +15,56 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined");
+    }
+
+    /* ---------- FIND VERIFIED USER ---------- */
+    const user = await prisma.user.findFirst({
       where: {
         email,
-        emailVerified: true, // Only allow verified users to login
+        emailVerified: true,
       },
     });
 
     if (!user) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
+        { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
+    /* ---------- VERIFY PASSWORD ---------- */
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: "Invalid credentials" },
+        { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
+    /* ---------- SIGN JWT ---------- */
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || "fallback-secret",
-      { expiresIn: "1d" }
+      {
+        userId: user.id,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1d",
+      }
     );
 
+    /* ---------- SET HTTP-ONLY COOKIE ---------- */
     const response = NextResponse.json(
-      { 
-        message: "Login successful",
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          email: user.email,
-        }
-      },
+      { message: "Login successful" },
       { status: 200 }
     );
 
-    response.cookies.set("token", token, {
+    response.cookies.set({
+      name: "token",
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
