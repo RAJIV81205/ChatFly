@@ -7,11 +7,28 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
-model User {
-  id String @id @default(uuid())
 
+/**
+ * =========================
+ * ENUMS
+ * =========================
+ */
+
+enum ConversationType {
+  PRIVATE
+  GROUP
+}
+
+/**
+ * =========================
+ * USER
+ * =========================
+ */
+
+model User {
+  id       String @id @default(uuid())
   username String @unique
   fullName String
   email    String @unique
@@ -26,7 +43,20 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /**
+   * Relations
+   */
+  messages      Message[]
+  readReceipts  ReadReceipt[]
+  conversations ConversationMember[]
 }
+
+/**
+ * =========================
+ * EMAIL OTP
+ * =========================
+ */
 
 model EmailOTP {
   id        String   @id @default(uuid())
@@ -36,4 +66,76 @@ model EmailOTP {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+/**
+ * =========================
+ * CONVERSATION
+ * =========================
+ */
+
+model Conversation {
+  id        String           @id @default(uuid())
+  type      ConversationType
+  name      String? // Only for GROUP
+  createdAt DateTime         @default(now())
+
+  members  ConversationMember[]
+  messages Message[]
+}
+
+/**
+ * =========================
+ * CONVERSATION MEMBERS
+ * =========================
+ */
+
+model ConversationMember {
+  id             String  @id @default(uuid())
+  conversationId String
+  userId         String
+  isAdmin        Boolean @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+}
+
+/**
+ * =========================
+ * MESSAGE
+ * =========================
+ */
+
+model Message {
+  id             String @id @default(uuid())
+  content        String
+  senderId       String
+  conversationId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sender       User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  readReceipts ReadReceipt[]
+}
+
+/**
+ * =========================
+ * READ RECEIPTS
+ * =========================
+ */
+
+model ReadReceipt {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
 }
