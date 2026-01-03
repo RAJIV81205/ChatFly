@@ -5,7 +5,7 @@ import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
-import prisma from "../lib/db/prisma";
+import { prisma } from "../lib/db/prisma";
 import { createMessage } from "../lib/db/services/messageService";
 import {
   decryptMessage,
