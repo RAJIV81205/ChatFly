@@ -10,6 +10,7 @@ interface User {
   fullName: string;
   username: string;
   profilePicUrl: string | null;
+  lastSeen?: string;
 }
 
 interface Message {
@@ -56,6 +57,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [userLastSeen, setUserLastSeen] = useState<{[userId: string]: string}>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -85,6 +87,13 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     },
     onUserStoppedTyping: (data) => {
       console.log(`${data.userId} stopped typing in ${data.conversationId}`);
+    },
+    onUserOffline: (data) => {
+      // Update last seen when user goes offline
+      setUserLastSeen(prev => ({
+        ...prev,
+        [data.userId]: data.lastSeen.toString()
+      }));
     }
   });
 
@@ -120,6 +129,11 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       if (data.success) {
         setMessages(data.messages);
         setConversation(data.conversation);
+        
+        // Fetch last seen data for private chats
+        if (data.conversation?.type === 'PRIVATE') {
+          await fetchUserLastSeen(data.conversation.members);
+        }
       } else {
         console.error('Failed to fetch messages:', data.error);
       }
@@ -127,6 +141,26 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       console.error('Error fetching messages:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserLastSeen = async (members: any[]) => {
+    try {
+      // Get the other user (not current user)
+      const otherUser = members.find(member => member.id !== currentUserId);
+      if (!otherUser) return;
+
+      const response = await fetch(`/api/users/${otherUser.username}`);
+      const data = await response.json();
+
+      if (data.success && data.user.lastSeen) {
+        setUserLastSeen(prev => ({
+          ...prev,
+          [otherUser.id]: data.user.lastSeen
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user last seen:', error);
     }
   };
 
@@ -220,6 +254,51 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     });
   };
 
+ const formatLastSeen = (lastSeenString: string) => {
+  const lastSeen = new Date(lastSeenString);
+  const now = new Date();
+
+  if (isNaN(lastSeen.getTime())) return "";
+
+  const diffMs = now.getTime() - lastSeen.getTime();
+
+  // Future safeguard
+  if (diffMs < 0) return "just now";
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  const isSameDay =
+    lastSeen.getFullYear() === now.getFullYear() &&
+    lastSeen.getMonth() === now.getMonth() &&
+    lastSeen.getDate() === now.getDate();
+
+  // 🔹 Today → show exact time difference
+  if (isSameDay) {
+    if (diffMinutes < 1) return "just now";
+
+    if (diffMinutes < 60) {
+      return `${diffMinutes}m ago`;
+    }
+
+    const hours = diffHours;
+    const minutes = diffMinutes % 60;
+
+    return minutes > 0
+      ? `${hours}h ${minutes}m ago`
+      : `${hours}h ago`;
+  }
+
+  // 🔹 Older than today → show date + time
+  return lastSeen.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -306,16 +385,27 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                   </p>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${
-                      conversation.members.some(member => 
-                        member.id !== currentUserId && isUserOnline(member.id)
-                      ) ? 'bg-green-500' : 'bg-gray-400'
-                    }`} />
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {conversation.members.some(member => 
-                        member.id !== currentUserId && isUserOnline(member.id)
-                      ) ? 'online' : 'offline'}
-                    </span>
+                    {(() => {
+                      const otherUser = conversation.members.find(member => member.id !== currentUserId);
+                      const isOnline = otherUser && isUserOnline(otherUser.id);
+                      const lastSeen = otherUser && userLastSeen[otherUser.id];
+                      
+                      return (
+                        <>
+                          <div className={`w-2 h-2 rounded-full ${
+                            isOnline ? 'bg-green-500' : 'bg-gray-400'
+                          }`} />
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {isOnline 
+                              ? 'online' 
+                              : lastSeen 
+                                ? `last seen ${formatLastSeen(lastSeen)}`
+                                : 'offline'
+                            }
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
