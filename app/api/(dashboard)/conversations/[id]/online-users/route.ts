@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id;
+    const { id: conversationId } = await params;
     
     // Make request to the WebSocket server to get online users for this conversation
     const websocketUrl = process.env.WEBSOCKET_URL || 'http://localhost:3001';
