@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import prisma from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/middleware/verifyToken";
 import cloudinary from "cloudinary";
+import sharp from "sharp";
 
 /* ---------------- Cloudinary config ---------------- */
 cloudinary.v2.config({
@@ -12,20 +13,35 @@ cloudinary.v2.config({
 });
 
 /* ---------------- Upload helper ---------------- */
-async function uploadToCloudinary(file: File): Promise<string> {
-  const buffer = Buffer.from(await file.arrayBuffer());
+async function uploadToCloudinary(
+  file: File
+): Promise<{ url: string; publicId: string }> {
+  const inputBuffer = Buffer.from(await file.arrayBuffer());
+
+  const optimizedBuffer = await sharp(inputBuffer)
+    .rotate() // fix EXIF orientation
+    .webp({
+      quality: 80,
+      effort: 4,
+    })
+    .toBuffer();
 
   return new Promise((resolve, reject) => {
     cloudinary.v2.uploader.upload_stream(
       {
         folder: "avatars",
         resource_type: "image",
+        format: "webp",
       },
       (error, result) => {
         if (error || !result) return reject(error);
-        resolve(result.secure_url);
+
+        resolve({
+          url: result.secure_url,
+          publicId: result.public_id,
+        });
       }
-    ).end(buffer);
+    ).end(optimizedBuffer);
   });
 }
 
@@ -36,8 +52,9 @@ export async function POST(
 ) {
   try {
     /* ---------- Auth ---------- */
-    const CookieStore = await cookies()
-    const token = CookieStore.get("token")?.value;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -48,12 +65,9 @@ export async function POST(
     }
 
     /* ---------- Authorization ---------- */
-      const { username } = await params;
-    if (currentUser.username !==  username) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
+    const { username } = await params
+    if (currentUser.username !== username) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     /* ---------- File ---------- */
@@ -64,12 +78,8 @@ export async function POST(
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    // Basic validation
     if (!file.type.startsWith("image/")) {
-      return NextResponse.json(
-        { error: "Invalid file type" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
     }
 
     if (file.size > 2 * 1024 * 1024) {
@@ -79,18 +89,29 @@ export async function POST(
       );
     }
 
-    /* ---------- Upload ---------- */
-    const avatarUrl = await uploadToCloudinary(file);
+    /* ---------- Delete old avatar ---------- */
+    if (currentUser.profilePicPublicId) {
+      await cloudinary.v2.uploader.destroy(
+        currentUser.profilePicPublicId,
+        { resource_type: "image" }
+      );
+    }
+
+    /* ---------- Upload new avatar ---------- */
+    const { url, publicId } = await uploadToCloudinary(file);
 
     /* ---------- DB update ---------- */
     await prisma.user.update({
       where: { id: currentUser.id },
-      data: { profilePicUrl: avatarUrl },
+      data: {
+        profilePicUrl: url,
+        profilePicPublicId: publicId,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      profilePicUrl: avatarUrl,
+      profilePicUrl: url,
     });
   } catch (error) {
     console.error("Avatar upload error:", error);
