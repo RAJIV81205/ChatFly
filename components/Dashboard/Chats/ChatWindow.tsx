@@ -58,8 +58,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [userLastSeen, setUserLastSeen] = useState<{[userId: string]: string}>({});
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const onlineStatusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Socket integration
   const {
@@ -88,12 +90,21 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     onUserStoppedTyping: (data) => {
       console.log(`${data.userId} stopped typing in ${data.conversationId}`);
     },
+    onUserOnline: (data) => {
+      // Update online status when user comes online
+      setOnlineUsers(prev => new Set([...prev, data.userId]));
+    },
     onUserOffline: (data) => {
-      // Update last seen when user goes offline
+      // Update last seen when user goes offline and remove from online users
       setUserLastSeen(prev => ({
         ...prev,
         [data.userId]: data.lastSeen.toString()
       }));
+      setOnlineUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(data.userId);
+        return newSet;
+      });
     }
   });
 
@@ -107,8 +118,31 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       if (chatId) {
         leaveConversation(chatId);
       }
+      if (onlineStatusIntervalRef.current) {
+        clearInterval(onlineStatusIntervalRef.current);
+      }
     };
   }, [chatId]);
+
+  // Separate effect for online status checking that depends on conversation
+  useEffect(() => {
+    if (conversation && chatId) {
+      // Initial check
+      checkOnlineStatus();
+      
+      // Set up interval
+      if (onlineStatusIntervalRef.current) {
+        clearInterval(onlineStatusIntervalRef.current);
+      }
+      onlineStatusIntervalRef.current = setInterval(checkOnlineStatus, 30000);
+    }
+    
+    return () => {
+      if (onlineStatusIntervalRef.current) {
+        clearInterval(onlineStatusIntervalRef.current);
+      }
+    };
+  }, [conversation, chatId]);
 
   useEffect(() => {
     // Use setTimeout to ensure DOM has updated before scrolling
@@ -119,8 +153,45 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     return () => clearTimeout(timer);
   }, [messages]);
 
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (onlineStatusIntervalRef.current) {
+        clearInterval(onlineStatusIntervalRef.current);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const checkOnlineStatus = async () => {
+    if (!conversation) return;
+    
+    try {
+      // Get user IDs to check (excluding current user)
+      const userIds = conversation.members
+        .filter(member => member.id !== currentUserId)
+        .map(member => member.id);
+      
+      if (userIds.length === 0) return;
+      
+      const response = await fetch(`/api/users/online-status?userIds=${userIds.join(',')}`);
+      const data = await response.json();
+      
+      if (data.onlineStatus) {
+        const onlineUserIds = Object.keys(data.onlineStatus).filter(
+          userId => data.onlineStatus[userId]
+        );
+        setOnlineUsers(new Set(onlineUserIds));
+      }
+    } catch (error) {
+      console.error('Error checking online status:', error);
+    }
   };
 
   const fetchMessages = async () => {
@@ -422,7 +493,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                   <div className="flex items-center gap-1">
                     {(() => {
                       const otherUser = conversation.members.find(member => member.id !== currentUserId);
-                      const isOnline = otherUser && isUserOnline(otherUser.id);
+                      const isOnline = otherUser && (isUserOnline(otherUser.id) || onlineUsers.has(otherUser.id));
                       const lastSeen = otherUser && userLastSeen[otherUser.id];
                       
                       return (

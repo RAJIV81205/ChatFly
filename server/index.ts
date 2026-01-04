@@ -100,11 +100,8 @@ io.on('connection', async (socket: Socket) => {
     typingIn: null
   });
 
-  // Update user's lastSeen in database
-  await prisma.user.update({
-    where: { id: userId },
-    data: { lastSeen: new Date() }
-  });
+  // Don't update lastSeen when connecting - user is now online
+  // We'll only update lastSeen when they fully disconnect
 
   // Get user's conversations to join rooms
   const conversations = await prisma.conversation.findMany({
@@ -121,12 +118,11 @@ io.on('connection', async (socket: Socket) => {
     authenticatedSocket.join(`conversation:${conv.id}`);
   });
 
-  // Broadcast user online status to their conversations
+  // Broadcast user online status to their conversations (without lastSeen since they're online)
   conversations.forEach((conv: any) => {
     authenticatedSocket.to(`conversation:${conv.id}`).emit('user_online', {
       userId: userId,
-      user: user,
-      lastSeen: new Date()
+      user: user
     });
   });
 
@@ -368,7 +364,7 @@ app.get('/api/conversation/:id/online-users', (req: any, res: any) => {
         onlineInConversation.push({
           userId: userId,
           user: socketInfo.user,
-          lastSeen: socketInfo.lastSeen,
+          isOnline: true, // They're in the onlineUsers map, so they're online
           isTyping: isTyping
         });
       }
@@ -376,6 +372,18 @@ app.get('/api/conversation/:id/online-users', (req: any, res: any) => {
   }
 
   res.json({ onlineUsers: onlineInConversation });
+});
+
+// New API endpoint to check if specific users are online
+app.get('/api/users/online-status', (req: any, res: any) => {
+  const userIds = req.query.userIds ? req.query.userIds.split(',') : [];
+  const onlineStatus: {[key: string]: boolean} = {};
+  
+  userIds.forEach((userId: string) => {
+    onlineStatus[userId] = onlineUsers.has(userId) && onlineUsers.get(userId).size > 0;
+  });
+  
+  res.json({ onlineStatus });
 });
 
 const PORT = process.env.WEBSOCKET_PORT || 3001;

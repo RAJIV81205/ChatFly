@@ -8,7 +8,7 @@ interface UseSocketOptions {
   onNewMessage?: (message: any) => void;
   onUserTyping?: (data: { userId: string; user: any; conversationId: string }) => void;
   onUserStoppedTyping?: (data: { userId: string; conversationId: string }) => void;
-  onUserOnline?: (data: { userId: string; user: any; lastSeen: Date }) => void;
+  onUserOnline?: (data: { userId: string; user: any }) => void;
   onUserOffline?: (data: { userId: string; lastSeen: Date }) => void;
   onMessageRead?: (data: { messageId: string; userId: string; user: any; readAt: Date }) => void;
 }
