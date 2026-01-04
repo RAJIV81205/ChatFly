@@ -90,6 +90,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Read receipt events
     socket.on('message_read', (data) => {
+      console.log('Read receipt received:', data);
       options.onMessageRead?.(data);
     });
 
@@ -126,6 +127,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   };
 
   const markMessageRead = (messageId: string, conversationId: string) => {
+    console.log('Marking message as read:', { messageId, conversationId, connected: socketRef.current?.connected });
     if (socketRef.current?.connected) {
       socketRef.current.emit('mark_message_read', { messageId, conversationId });
     }

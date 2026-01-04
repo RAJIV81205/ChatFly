@@ -41,6 +41,16 @@ export interface DecryptedMessage {
     mimeType: string | null;
     createdAt: Date;
   }[];
+  readReceipts: {
+    id: string;
+    userId: string;
+    readAt: Date;
+    user: {
+      id: string;
+      fullName: string;
+    };
+  }[];
+  status: 'sent' | 'read';
 }
 
 /**
@@ -92,12 +102,13 @@ export async function createMessage(data: CreateMessageData) {
 }
 
 /**
- * Get messages for a conversation with decryption
+ * Get messages for a conversation with decryption and status calculation
  */
 export async function getConversationMessages(
   conversationId: string,
   limit: number = 50,
-  cursor?: string
+  cursor?: string,
+  currentUserId?: string
 ): Promise<DecryptedMessage[]> {
   const messages = await prisma.message.findMany({
     where: { conversationId },
@@ -111,6 +122,16 @@ export async function getConversationMessages(
         },
       },
       files: true,
+      readReceipts: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+            },
+          },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     take: limit,
@@ -120,16 +141,56 @@ export async function getConversationMessages(
     }),
   });
   
-  // Decrypt messages and reverse to show oldest first
-  const decryptedMessages = messages.map((message: any) => ({
-    ...message,
-    content: decryptMessage(message.content, message.contentIv),
-    files: message.files.map((file: any) => ({
-      ...file,
-      fileName: decryptFileName(file.fileName, file.fileNameIv),
-      fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv),
-    })),
-  })).reverse();
+  // Get conversation members to calculate status
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      members: {
+        select: {
+          userId: true,
+        },
+      },
+    },
+  });
+  
+  const memberIds = conversation?.members.map((m: { userId: any; }) => m.userId) || [];
+  
+  // Decrypt messages and calculate status
+  const decryptedMessages = messages.map((message: any) => {
+    const decryptedMessage = {
+      ...message,
+      content: decryptMessage(message.content, message.contentIv),
+      files: message.files.map((file: any) => ({
+        ...file,
+        fileName: decryptFileName(file.fileName, file.fileNameIv),
+        fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv),
+      })),
+    };
+    
+    // Calculate message status for sender's messages
+    let status: 'sent' | 'read' = 'sent';
+    
+    if (currentUserId && message.senderId === currentUserId) {
+      // Get other members (excluding sender)
+      const otherMembers = memberIds.filter((id: string) => id !== currentUserId);
+      
+      if (otherMembers.length > 0) {
+        // Check if all other members have read the message
+        const allRead = otherMembers.every((memberId: any) =>
+          message.readReceipts.some((receipt: any) => receipt.userId === memberId)
+        );
+        
+        if (allRead) {
+          status = 'read';
+        }
+      }
+    }
+    
+    return {
+      ...decryptedMessage,
+      status,
+    };
+  }).reverse();
   
   return decryptedMessages;
 }

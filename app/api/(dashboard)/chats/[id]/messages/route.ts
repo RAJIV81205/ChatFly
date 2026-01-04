@@ -109,18 +109,42 @@ export async function GET(
       })
     });
 
-    // Decrypt messages
+    // Get conversation members to calculate status
+    const memberIds = conversation.members.map((member: { userId: any; }) => member.userId);
+
+    // Decrypt messages and calculate status
     const decryptedMessages = await Promise.all(
       messages.map(async (message: any) => {
         try {
           const decryptedContent = decrypt(message.content, message.contentIv);
+          
+          // Calculate message status for sender's messages
+          let status: 'sent' | 'read' = 'sent';
+          
+          if (message.senderId === user.id) {
+            // Get other members (excluding sender)
+            const otherMembers = memberIds.filter((id: any) => id !== user.id);
+            
+            if (otherMembers.length > 0) {
+              // Check if all other members have read the message
+              const allRead = otherMembers.every((memberId: any) =>
+                message.readReceipts.some((receipt: any) => receipt.userId === memberId)
+              );
+              
+              if (allRead) {
+                status = 'read';
+              }
+            }
+          }
+          
           return {
             id: message.id,
             content: decryptedContent,
             senderId: message.senderId,
             sender: message.sender,
             createdAt: message.createdAt,
-            readReceipts: message.readReceipts
+            readReceipts: message.readReceipts,
+            status
           };
         } catch (error) {
           console.error('Failed to decrypt message:', error);
@@ -130,7 +154,8 @@ export async function GET(
             senderId: message.senderId,
             sender: message.sender,
             createdAt: message.createdAt,
-            readReceipts: message.readReceipts
+            readReceipts: message.readReceipts,
+            status: 'sent' as const
           };
         }
       })

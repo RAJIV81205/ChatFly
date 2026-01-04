@@ -152,6 +152,18 @@ io.on('connection', async (socket: Socket) => {
         files
       });
 
+      // Get conversation members to calculate status
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          members: {
+            select: {
+              userId: true,
+            },
+          },
+        },
+      });
+
       // Decrypt message for real-time broadcast
       const decryptedContent = decryptMessage(message.content, message.contentIv);
 
@@ -166,7 +178,9 @@ io.on('connection', async (socket: Socket) => {
           ...file,
           fileName: decryptFileName(file.fileName, file.fileNameIv),
           fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv)
-        }))
+        })),
+        readReceipts: [],
+        status: 'sent' as const
       };
 
       // Broadcast to conversation room
@@ -247,7 +261,7 @@ io.on('connection', async (socket: Socket) => {
       const { messageId, conversationId } = data;
 
       // Create read receipt
-      await prisma.readReceipt.upsert({
+      const readReceipt = await prisma.readReceipt.upsert({
         where: {
           messageId_userId: {
             messageId: messageId,
@@ -261,15 +275,28 @@ io.on('connection', async (socket: Socket) => {
           messageId: messageId,
           userId: userId,
           readAt: new Date()
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true
+            }
+          }
         }
       });
 
-      // Broadcast read receipt to conversation
-      authenticatedSocket.to(`conversation:${conversationId}`).emit('message_read', {
+      // Broadcast read receipt to conversation (including the reader for confirmation)
+      io.to(`conversation:${conversationId}`).emit('message_read', {
         messageId: messageId,
         userId: userId,
-        user: user,
-        readAt: new Date()
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          username: user.username
+        },
+        readAt: readReceipt.readAt
       });
 
     } catch (error) {

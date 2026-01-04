@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { Send, Phone, Video, MoreHorizontal, Paperclip, Smile } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/lib/hooks/useSocket";
+import { MessageStatus } from "./MessageStatus";
+
 
 interface User {
   id: string;
@@ -19,7 +21,7 @@ interface Message {
   senderId: string;
   sender: User;
   createdAt: string;
-  readReceipts: Array<{
+  readReceipts?: Array<{
     id: string;
     userId: string;
     readAt: string;
@@ -28,6 +30,7 @@ interface Message {
       fullName: string;
     };
   }>;
+  status: 'sent' | 'read';
 }
 
 interface Conversation {
@@ -77,10 +80,29 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   } = useSocket({
     token,
     onNewMessage: (message) => {
-      setMessages(prev => [...prev, message]);
-      // Mark message as read if it's not from current user
-      if (message.senderId !== currentUserId && chatId) {
-        markMessageRead(message.id, chatId);
+      console.log('New message received:', message);
+      
+      // Ensure message has proper structure
+      const safeMessage = {
+        ...message,
+        readReceipts: Array.isArray(message.readReceipts) ? message.readReceipts : [],
+        status: message.status || 'sent'
+      };
+      
+      // Remove any temporary message with same content and sender
+      setMessages(prev => {
+        const filteredMessages = prev.filter(msg => 
+          !(msg && msg.id && msg.id.startsWith('temp-') && 
+            msg.senderId === safeMessage.senderId && 
+            msg.content === safeMessage.content)
+        );
+        return [...filteredMessages, safeMessage];
+      });
+      
+      // Mark message as read immediately if it's not from current user and chat is open
+      if (safeMessage.senderId !== currentUserId && chatId) {
+        console.log('Auto-marking new message as read');
+        markMessageRead(safeMessage.id, chatId);
       }
     },
     onUserTyping: (data) => {
@@ -105,6 +127,49 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         newSet.delete(data.userId);
         return newSet;
       });
+    },
+    onMessageRead: (data) => {
+      console.log('Message read event received:', data);
+      // Update message status when someone reads it
+      setMessages(prev => prev.map(msg => {
+        // Safety check for message object
+        if (!msg || !msg.id || msg.id !== data.messageId) {
+          return msg;
+        }
+
+        try {
+          // Ensure readReceipts exists and add the read receipt if it doesn't exist
+          const currentReadReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+          const updatedReadReceipts = currentReadReceipts.some(r => r && r.userId === data.userId) 
+            ? currentReadReceipts 
+            : [...currentReadReceipts, {
+                id: data.messageId + data.userId,
+                userId: data.userId,
+                readAt: data.readAt.toString(),
+                user: data.user
+              }];
+
+          // Calculate new status if this is sender's message
+          let newStatus = msg.status || 'sent';
+          if (msg.senderId === currentUserId && conversation && conversation.members) {
+            const otherMembers = conversation.members.filter(m => m && m.id !== currentUserId);
+            const allRead = otherMembers.every(member => 
+              updatedReadReceipts.some(r => r && r.userId === member.id)
+            );
+            newStatus = allRead ? 'read' as const : 'sent' as const;
+            console.log('Updated message status:', { messageId: msg.id, newStatus, allRead, otherMembers: otherMembers.length });
+          }
+          
+          return {
+            ...msg,
+            readReceipts: updatedReadReceipts,
+            status: newStatus
+          };
+        } catch (error) {
+          console.error('Error updating message read status:', error, msg);
+          return msg;
+        }
+      }));
     }
   });
 
@@ -152,6 +217,70 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     
     return () => clearTimeout(timer);
   }, [messages]);
+
+  // Handle visibility change to mark messages as read when user returns to tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && chatId && currentUserId) {
+        // Mark any unread messages as read when user returns to tab
+        const unreadMessages = messages.filter((msg: Message) => {
+          if (!msg || msg.senderId === currentUserId) return false;
+          const readReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+          return !readReceipts.some((receipt: any) => receipt && receipt.userId === currentUserId);
+        });
+        
+        unreadMessages.forEach((msg: Message) => {
+          markMessageRead(msg.id, chatId);
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [messages, chatId, currentUserId, markMessageRead]);
+
+  // Handle window focus to mark messages as read
+  useEffect(() => {
+    const handleFocus = () => {
+      if (chatId && currentUserId) {
+        // Mark any unread messages as read when chat gets focus
+        const unreadMessages = messages.filter((msg: Message) => {
+          if (!msg || msg.senderId === currentUserId) return false;
+          const readReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+          return !readReceipts.some((receipt: any) => receipt && receipt.userId === currentUserId);
+        });
+        
+        unreadMessages.forEach((msg: Message) => {
+          markMessageRead(msg.id, chatId);
+        });
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [messages, chatId, currentUserId, markMessageRead]);
+
+  // Periodic check to mark unread messages as read
+  useEffect(() => {
+    if (!chatId || !currentUserId) return;
+
+    const interval = setInterval(() => {
+      const unreadMessages = messages.filter((msg: Message) => {
+        if (!msg || msg.senderId === currentUserId) return false;
+        const readReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+        return !readReceipts.some((receipt: any) => receipt && receipt.userId === currentUserId);
+      });
+      
+      if (unreadMessages.length > 0) {
+        console.log('Periodic check: marking', unreadMessages.length, 'messages as read');
+        unreadMessages.forEach((msg: Message) => {
+          markMessageRead(msg.id, chatId);
+        });
+      }
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [messages, chatId, currentUserId, markMessageRead]);
 
   // Cleanup effect
   useEffect(() => {
@@ -211,6 +340,20 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           await fetchUserLastSeen(data.conversation.members);
         }
         
+        // Mark unread messages as read
+        if (currentUserId) {
+          const unreadMessages = data.messages.filter((msg: Message) => {
+            if (!msg || msg.senderId === currentUserId) return false;
+            const readReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+            return !readReceipts.some((receipt: any) => receipt && receipt.userId === currentUserId);
+          });
+          
+          // Mark each unread message as read
+          unreadMessages.forEach((msg: Message) => {
+            markMessageRead(msg.id, chatId);
+          });
+        }
+        
         // Scroll to bottom after messages are loaded
         setTimeout(() => {
           scrollToBottom();
@@ -263,6 +406,22 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       // Use WebSocket if connected, fallback to HTTP
       if (isConnected) {
         socketSendMessage(chatId, messageContent);
+        // Optimistically add the message to UI
+        const tempMessage: Message = {
+          id: 'temp-' + Date.now(),
+          content: messageContent,
+          senderId: currentUserId,
+          sender: {
+            id: currentUserId,
+            fullName: 'You',
+            username: '',
+            profilePicUrl: null
+          },
+          createdAt: new Date().toISOString(),
+          readReceipts: [],
+          status: 'sent'
+        };
+        setMessages(prev => [...prev, tempMessage]);
       } else {
         // Fallback to HTTP API
         const response = await fetch('/api/messages', {
@@ -436,6 +595,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
   return (
     <>
+      
       <style jsx>{`
         @keyframes typingDot {
           0%, 60%, 100% {
@@ -602,9 +762,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                   </div>
 
                   {isOwnMessage && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 text-right">
-                      {formatTime(message.createdAt)}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 justify-end">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {formatTime(message.createdAt)}
+                      </p>
+                      <MessageStatus status={message.status} />
+                    </div>
                   )}
                   
                   {!isOwnMessage && conversation?.type === 'PRIVATE' && (

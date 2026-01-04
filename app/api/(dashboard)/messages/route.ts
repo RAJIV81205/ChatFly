@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMessage, getConversationMessages } from '@/lib/db/services/messageService';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/middleware/verifyToken';
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,8 +51,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get and decrypt messages
-    const messages = await getConversationMessages(conversationId, limit, cursor);
+    // Get current user from token
+    const cookieStore = await cookies();
+    const token = cookieStore.get('token')?.value;
+    let currentUserId: string | undefined;
+
+    if (token) {
+      try {
+        const user = await verifyToken(token);
+        currentUserId = user?.id;
+      } catch (error) {
+        console.error('Error verifying token:', error);
+      }
+    }
+
+    // Get and decrypt messages with status calculation
+    const messages = await getConversationMessages(conversationId, limit, cursor, currentUserId);
 
     return NextResponse.json({ 
       success: true, 
