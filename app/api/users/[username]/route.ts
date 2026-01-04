@@ -35,28 +35,28 @@ export async function GET(
       where: { username },
       select: isSelf
         ? {
-            // SELF → full data (except sensitive)
-            id: true,
-            username: true,
-            fullName: true,
-            email: true,
-            phone: true,
-            profilePicUrl: true,
-            bio: true,
-            emailVerified: true,
-            createdAt: true,
-            updatedAt: true,
-            // ❌ password
-            // ❌ lastSeen
-          }
+          // SELF → full data (except sensitive)
+          id: true,
+          username: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          profilePicUrl: true,
+          bio: true,
+          emailVerified: true,
+          createdAt: true,
+          updatedAt: true,
+          // ❌ password
+          // ❌ lastSeen
+        }
         : {
-            // OTHER USER → public data only
-            id: true,
-            username: true,
-            fullName: true,
-            profilePicUrl: true,
-            lastSeen: true,
-          },
+          // OTHER USER → public data only
+          id: true,
+          username: true,
+          fullName: true,
+          profilePicUrl: true,
+          lastSeen: true,
+        },
     });
 
     if (!user || (!isSelf && "emailVerified" in user && !user.emailVerified)) {
@@ -79,3 +79,68 @@ export async function GET(
     );
   }
 }
+
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ username: string }> }
+) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Verify token
+    const currentUser = await verifyToken(token);
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "Invalid token" },
+        { status: 401 }
+      );
+    }
+
+    const { username } = await params;
+    const isSelf = currentUser.username === username;
+
+    if (!isSelf) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { fullName, phone, bio } = body;
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { username },
+      data: {
+        fullName,
+        phone,
+        bio,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    return NextResponse.json(
+      { error: "Failed to update user profile" },
+      { status: 500 }
+    );
+  }
+
+
+}
+
+
