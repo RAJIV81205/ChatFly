@@ -29,11 +29,14 @@ export default function DashboardLayout({
 
         if (data.valid) {
           setIsVerified(true);
+          localStorage.setItem("username",data.username);
         } else {
           router.replace("/auth/login");
+          localStorage.clear() 
         }
       } catch (error) {
         router.replace("/auth/login");
+        localStorage.clear()
       } finally {
         setLoading(false);
       }

@@ -40,7 +40,7 @@ export async function GET(
             username: true,
             fullName: true,
             email: true,
-            phoneNumber: true,
+            phone: true,
             profilePicUrl: true,
             bio: true,
             emailVerified: true,

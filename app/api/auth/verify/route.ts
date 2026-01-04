@@ -25,7 +25,7 @@ export async function GET() {
     }
 
 
-    return NextResponse.json({ valid: true }, { status: 200 });
+    return NextResponse.json({ valid: true , username: user.username}, { status: 200 });
   } catch (error) {
     return NextResponse.json({ valid: false }, { status: 401 });
   }
