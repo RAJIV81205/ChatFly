@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 const Sidebar = () => {
+  const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -33,14 +35,14 @@ const Sidebar = () => {
 
       {/* Main Icons */}
         <nav className="flex flex-col items-center gap-6">
-          <IconButton icon={<MessageCircleMore />} />
-          <IconButton icon={<Phone />} />
-          <IconButton icon={<Video />} />
+          <IconButton icon={<MessageCircleMore />} link={"/dashboard"} isActive={pathname === "/dashboard"} />
+          <IconButton icon={<Phone />} link={"/dashboard/call"} isActive={pathname === "/dashboard/call"} />
+          <IconButton icon={<Video />} link={"/dashboard/vcall"} isActive={pathname === "/dashboard/vcall"} />
         </nav>
 
       {/* Bottom Section */}
       <div className="flex flex-col items-center gap-6">
-        <IconButton icon={<Settings />} />
+        <IconButton icon={<Settings />} link={"/dashboard/settings"} isActive={pathname === "/dashboard/settings"} />
 
         {/* Theme Toggle */}
         <button
@@ -63,9 +65,18 @@ export default Sidebar;
 /* ---------------------------------- */
 /* Reusable Icon Button */
 /* ---------------------------------- */
-const IconButton = ({ icon }: { icon: React.ReactNode }) => {
+const IconButton = ({ icon, link, isActive }: { icon: React.ReactNode, link?: string, isActive?: boolean }) => {
+  const router = useRouter();
+  
   return (
-    <button className="p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-zinc-600 dark:text-zinc-300">
+    <button 
+      onClick={() => link && router.replace(link)} 
+      className={`p-3 rounded-xl transition ${
+        isActive 
+          ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900" 
+          : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+      }`}
+    >
       {icon}
     </button>
   );
