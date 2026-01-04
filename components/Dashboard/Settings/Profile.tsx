@@ -217,8 +217,8 @@ const Profile = () => {
         </div>
       </div>
       {editorImage && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
-          <div className="bg-white dark:bg-zinc-900 w-[90vw] max-w-md rounded-xl p-4 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/70  backdrop-blur-md flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 w-[90vw] max-w-lg rounded-xl p-4 space-y-4">
             <div className="relative h-64 bg-black rounded-lg overflow-hidden">
               <Cropper
                 image={editorImage}
@@ -282,6 +282,10 @@ const Profile = () => {
                   );
                   setEditorImage(null);
                   handleAvatarChange(file);
+                     setCrop({ x: 0, y: 0 });
+                  setCroppedPixels(null);
+                  setZoom(1);
+                  setRotation(0);
                 }}
                 className="px-3 py-1.5 bg-zinc-900 text-white rounded"
               >
