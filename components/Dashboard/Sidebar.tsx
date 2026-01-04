@@ -58,15 +58,31 @@ const Sidebar = () => {
     const index = navItems.findIndex(
       (item) => item.link === pathname
     );
-    if (index === -1) return;
+    
+    // Hide indicator if we're on settings or no main nav item is active
+    if (index === -1 || pathname === "/dashboard/settings") {
+      gsap.set(indicatorRef.current, {
+        opacity: 0,
+        height: 0,
+      });
+      
+      // Reset all main nav items scale
+      gsap.to(Array.from(navRef.current.children), {
+        scale: 1,
+        duration: 0.2,
+      });
+      return;
+    }
 
     const btn = navRef.current.children[index] as HTMLElement;
 
+    // Show and position indicator
     gsap.to(indicatorRef.current, {
+      opacity: 1,
       y: btn.offsetTop,
       height: btn.offsetHeight,
       duration: 0.45,
-      ease: "expo.out", // ← key improvement
+      ease: "expo.out",
     });
 
     // Active icon micro-scale
@@ -123,11 +139,18 @@ const Sidebar = () => {
 
       {/* Bottom */}
       <div className="flex flex-col items-center gap-6">
-        <IconButton
-          icon={<Settings />}
-          link="/dashboard/settings"
-          isActive={pathname === "/dashboard/settings"}
-        />
+        <div className="relative">
+          {/* Settings highlighter - static, no animation */}
+          {pathname === "/dashboard/settings" && (
+            <div className="absolute inset-0 rounded-xl bg-zinc-900 dark:bg-white z-0" />
+          )}
+          
+          <IconButton
+            icon={<Settings />}
+            link="/dashboard/settings"
+            isActive={pathname === "/dashboard/settings"}
+          />
+        </div>
 
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -161,7 +184,7 @@ const IconButton = ({
   return (
     <button
       onClick={() => link && router.replace(link)}
-      className={`p-3 rounded-xl transition relative ${
+      className={`p-3 rounded-xl transition relative z-10 ${
         isActive
           ? "text-white dark:text-zinc-900"
           : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
