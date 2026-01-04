@@ -547,11 +547,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           );
         })}
         <div ref={messagesEndRef} />
-      </div>
-
-      {/* Message Input */}
-      <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
-        {/* Typing Indicators */}
         {chatId && getTypingUsersInConversation(chatId).length > 0 && (
           <div className="mb-3 flex items-center gap-3">
             <div className="shrink-0">
@@ -573,6 +568,32 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Message Input */}
+      <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
+        {/* Typing Indicators */}
+        {/* {chatId && getTypingUsersInConversation(chatId).length > 0 && (
+          <div className="mb-3 flex items-center gap-3">
+            <div className="shrink-0">
+              <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  {conversation?.type === 'PRIVATE' 
+                    ? conversation.name.charAt(0).toUpperCase()
+                    : '👥'
+                  }
+                </span>
+              </div>
+            </div>
+            <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-1"></div>
+                <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-2"></div>
+                <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-3"></div>
+              </div>
+            </div>
+          </div>
+        )} */}
         
         <form onSubmit={sendMessage} className="flex items-end gap-3">
           <div className="flex-1">
