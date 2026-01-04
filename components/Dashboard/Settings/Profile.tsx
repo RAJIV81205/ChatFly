@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle } from "lucide-react";
+import Cropper from "react-easy-crop";
 
 interface UserProfile {
   id: string;
@@ -21,6 +22,12 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const [editorImage, setEditorImage] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [croppedPixels, setCroppedPixels] = useState<any>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -103,7 +110,6 @@ const Profile = () => {
   return (
     <div className="flex-1 bg-white dark:bg-zinc-900">
       <div className="max-w-2xl mx-auto px-6 py-10 space-y-10">
-
         {/* Header */}
         <div className="flex items-center gap-4">
           <div className="relative h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
@@ -141,9 +147,10 @@ const Profile = () => {
             type="file"
             hidden
             accept="image/*"
-            onChange={(e) =>
-              e.target.files && handleAvatarChange(e.target.files[0])
-            }
+            onChange={(e) => {
+              if (!e.target.files) return;
+              setEditorImage(URL.createObjectURL(e.target.files[0]));
+            }}
           />
         </div>
 
@@ -152,9 +159,7 @@ const Profile = () => {
           <Field label="Full name">
             <input
               value={form.fullName}
-              onChange={(e) =>
-                setForm({ ...form, fullName: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
               className="input"
             />
           </Field>
@@ -211,6 +216,81 @@ const Profile = () => {
           </button>
         </div>
       </div>
+      {editorImage && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
+          <div className="bg-white dark:bg-zinc-900 w-[90vw] max-w-md rounded-xl p-4 space-y-4">
+            <div className="relative h-64 bg-black rounded-lg overflow-hidden">
+              <Cropper
+                image={editorImage}
+                crop={crop}
+                zoom={zoom}
+                rotation={rotation}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onRotationChange={setRotation}
+                onCropComplete={(_, pixels) => setCroppedPixels(pixels)}
+              />
+            </div>
+
+            <div className="flex flex-row justify-around ">
+              <div className="flex flex-col justify-center items-center space-y-1">
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={zoom}
+                  onChange={(e) => setZoom(+e.target.value)}
+                />
+                <label className="text-xs">Zoom</label>
+              </div>
+
+              <div className="flex flex-col justify-center items-center space-y-1">
+                <input
+                  type="range"
+                  min={0}
+                  max={360}
+                  value={rotation}
+                  onChange={(e) => setRotation(+e.target.value)}
+                />
+                <label className="text-xs">Rotate</label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setEditorImage(null)
+                  setCrop({ x: 0, y: 0 });
+                  setCroppedPixels(null);
+                  setZoom(1);
+                  setRotation(0);
+                }}
+                className="px-3 py-1.5 border rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (!croppedPixels) return;
+                  const file = await getEditedImage(
+                    editorImage,
+                    croppedPixels,
+                    rotation
+                  );
+                  setEditorImage(null);
+                  handleAvatarChange(file);
+                }}
+                className="px-3 py-1.5 bg-zinc-900 text-white rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -232,3 +312,40 @@ const Field = ({
     {children}
   </div>
 );
+
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+
+async function getEditedImage(
+  imageSrc: string,
+  cropPixels: any,
+  rotation: number
+): Promise<File> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+
+  canvas.width = cropPixels.width;
+  canvas.height = cropPixels.height;
+
+  ctx.translate(-cropPixels.x, -cropPixels.y);
+  ctx.translate(image.width / 2, image.height / 2);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+
+  return new Promise((resolve) => {
+    canvas.toBlob(
+      (blob) =>
+        resolve(new File([blob!], "avatar.webp", { type: "image/webp" })),
+      "image/webp",
+      0.95
+    );
+  });
+}
