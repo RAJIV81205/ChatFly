@@ -43,21 +43,21 @@ const socketData = new Map(); // socketId -> user data
 // Middleware to authenticate socket connections
 io.use(async (socket: Socket, next) => {
   try {
-    console.log('Socket connection attempt:', socket.handshake.auth);
+    // console.log('Socket connection attempt:', socket.handshake.auth);
     const token = socket.handshake.auth.token;
     if (!token) {
-      console.log('No token provided');
+      // console.log('No token provided');
       return next(new Error('Authentication error'));
     }
 
     if (!process.env.JWT_SECRET) {
-      console.log('JWT_SECRET not configured');
+      // console.log('JWT_SECRET not configured');
       return next(new Error('JWT_SECRET not configured'));
     }
 
-    console.log('Verifying token...');
+    // console.log('Verifying token...');
     const payload = jwt.verify(token, process.env.JWT_SECRET) as any;
-    console.log('Token payload:', payload);
+    // console.log('Token payload:', payload);
     
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -65,17 +65,17 @@ io.use(async (socket: Socket, next) => {
     });
 
     if (!user) {
-      console.log('User not found for ID:', payload.userId);
+      // console.log('User not found for ID:', payload.userId);
       return next(new Error('User not found'));
     }
 
-    console.log('User authenticated:', user);
+    // console.log('User authenticated:', user);
     // Augment socket with user data
     (socket as any).userId = user.id;
     (socket as any).user = user;
     next();
   } catch (error) {
-    console.log('Authentication error:', error);
+    // console.log('Authentication error:', error);
     next(new Error('Authentication error'));
   }
 });
@@ -85,7 +85,7 @@ io.on('connection', async (socket: Socket) => {
   const userId = authenticatedSocket.userId;
   const user = authenticatedSocket.user;
 
-  console.log(`User ${user.fullName} connected`);
+  // console.log(`User ${user.fullName} connected`);
 
   // Add user to online users (support multiple connections)
   if (!onlineUsers.has(userId)) {
@@ -207,7 +207,7 @@ io.on('connection', async (socket: Socket) => {
       }
 
     } catch (error) {
-      console.error('Error sending message:', error);
+      // console.error('Error sending message:', error);
       authenticatedSocket.emit('error', { message: 'Failed to send message' });
     }
   });
@@ -259,6 +259,7 @@ io.on('connection', async (socket: Socket) => {
   authenticatedSocket.on('mark_message_read', async (data: any) => {
     try {
       const { messageId, conversationId } = data;
+      // console.log('🟢 Marking message as read:', { messageId, conversationId, userId });
 
       // Create read receipt
       const readReceipt = await prisma.readReceipt.upsert({
@@ -287,8 +288,9 @@ io.on('connection', async (socket: Socket) => {
         }
       });
 
-      // Broadcast read receipt to conversation (including the reader for confirmation)
-      io.to(`conversation:${conversationId}`).emit('message_read', {
+      // console.log('🟢 Read receipt created:', readReceipt);
+
+      const broadcastData = {
         messageId: messageId,
         userId: userId,
         user: {
@@ -297,10 +299,15 @@ io.on('connection', async (socket: Socket) => {
           username: user.username
         },
         readAt: readReceipt.readAt
-      });
+      };
+
+      // console.log('🟢 Broadcasting read receipt:', broadcastData);
+
+      // Broadcast read receipt to conversation (including the reader for confirmation)
+      io.to(`conversation:${conversationId}`).emit('message_read', broadcastData);
 
     } catch (error) {
-      console.error('Error marking message as read:', error);
+      // console.error('🔴 Error marking message as read:', error);
     }
   });
 
@@ -318,7 +325,7 @@ io.on('connection', async (socket: Socket) => {
 
   // Handle disconnect
   authenticatedSocket.on('disconnect', async () => {
-    console.log(`User ${user.fullName} disconnected`);
+    // console.log(`User ${user.fullName} disconnected`);
 
     // Remove this socket from user's connections
     const userSocketIds = onlineUsers.get(userId);
@@ -416,15 +423,15 @@ app.get('/api/users/online-status', (req: any, res: any) => {
 const PORT = process.env.WEBSOCKET_PORT || 3001;
 
 server.listen(PORT, () => {
-  console.log(`Real-time messaging server running on port ${PORT}`);
+  // console.log(`Real-time messaging server running on port ${PORT}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('Shutting down server...');
+  // console.log('Shutting down server...');
   await prisma.$disconnect();
   server.close(() => {
-    console.log('Server closed');
+    // console.log('Server closed');
     process.exit(0);
   });
 });

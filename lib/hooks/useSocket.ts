@@ -21,11 +21,11 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
   useEffect(() => {
     if (!options.token) {
-      console.log('No token provided to useSocket');
+      // console.log('No token provided to useSocket');
       return;
     }
 
-    console.log('Initializing socket connection with token:', options.token?.substring(0, 20) + '...');
+    // console.log('Initializing socket connection with token:', options.token?.substring(0, 20) + '...');
 
     // Initialize socket connection
     const socket = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001', {
@@ -39,12 +39,12 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Connection events
     socket.on('connect', () => {
-      console.log('Connected to WebSocket server');
+      // console.log('Connected to WebSocket server');
       setIsConnected(true);
     });
 
     socket.on('disconnect', () => {
-      console.log('Disconnected from WebSocket server');
+      // console.log('Disconnected from WebSocket server');
       setIsConnected(false);
     });
 
@@ -90,7 +90,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Read receipt events
     socket.on('message_read', (data) => {
-      console.log('Read receipt received:', data);
+      // console.log('Read receipt received:', data);
       options.onMessageRead?.(data);
     });
 
@@ -127,7 +127,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   };
 
   const markMessageRead = (messageId: string, conversationId: string) => {
-    console.log('Marking message as read:', { messageId, conversationId, connected: socketRef.current?.connected });
+    // console.log('Marking message as read:', { messageId, conversationId, connected: socketRef.current?.connected });
     if (socketRef.current?.connected) {
       socketRef.current.emit('mark_message_read', { messageId, conversationId });
     }

@@ -62,6 +62,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [isTyping, setIsTyping] = useState(false);
   const [userLastSeen, setUserLastSeen] = useState<{[userId: string]: string}>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onlineStatusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -80,7 +81,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   } = useSocket({
     token,
     onNewMessage: (message) => {
-      console.log('New message received:', message);
+      // console.log('New message received:', message);
       
       // Ensure message has proper structure
       const safeMessage = {
@@ -101,16 +102,16 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       
       // Mark message as read immediately if it's not from current user and chat is open
       if (safeMessage.senderId !== currentUserId && chatId) {
-        console.log('Auto-marking new message as read');
+        // console.log('Auto-marking new message as read');
         markMessageRead(safeMessage.id, chatId);
       }
     },
     onUserTyping: (data) => {
       // Handle typing indicators
-      console.log(`${data.user.fullName} is typing in ${data.conversationId}`);
+      // console.log(`${data.user.fullName} is typing in ${data.conversationId}`);
     },
     onUserStoppedTyping: (data) => {
-      console.log(`${data.userId} stopped typing in ${data.conversationId}`);
+      // console.log(`${data.userId} stopped typing in ${data.conversationId}`);
     },
     onUserOnline: (data) => {
       // Update online status when user comes online
@@ -129,47 +130,71 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       });
     },
     onMessageRead: (data) => {
-      console.log('Message read event received:', data);
+      // console.log('🔵 Message read event received:', data);
+      // console.log('🔵 Current messages before update:', messages.length);
+      // console.log('🔵 Current user ID:', currentUserId);
+      // console.log('🔵 Conversation members:', conversation?.members);
+      
       // Update message status when someone reads it
-      setMessages(prev => prev.map(msg => {
-        // Safety check for message object
-        if (!msg || !msg.id || msg.id !== data.messageId) {
-          return msg;
-        }
-
-        try {
-          // Ensure readReceipts exists and add the read receipt if it doesn't exist
-          const currentReadReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
-          const updatedReadReceipts = currentReadReceipts.some(r => r && r.userId === data.userId) 
-            ? currentReadReceipts 
-            : [...currentReadReceipts, {
-                id: data.messageId + data.userId,
-                userId: data.userId,
-                readAt: data.readAt.toString(),
-                user: data.user
-              }];
-
-          // Calculate new status if this is sender's message
-          let newStatus = msg.status || 'sent';
-          if (msg.senderId === currentUserId && conversation && conversation.members) {
-            const otherMembers = conversation.members.filter(m => m && m.id !== currentUserId);
-            const allRead = otherMembers.every(member => 
-              updatedReadReceipts.some(r => r && r.userId === member.id)
-            );
-            newStatus = allRead ? 'read' as const : 'sent' as const;
-            console.log('Updated message status:', { messageId: msg.id, newStatus, allRead, otherMembers: otherMembers.length });
+      setMessages(prev => {
+        // console.log('🔵 Processing messages:', prev.length);
+        return prev.map(msg => {
+          // Safety check for message object
+          if (!msg || !msg.id || msg.id !== data.messageId) {
+            return msg;
           }
-          
-          return {
-            ...msg,
-            readReceipts: updatedReadReceipts,
-            status: newStatus
-          };
-        } catch (error) {
-          console.error('Error updating message read status:', error, msg);
-          return msg;
-        }
-      }));
+
+          // console.log('🔵 Found matching message:', msg.id, 'sender:', msg.senderId, 'current status:', msg.status);
+
+          try {
+            // Ensure readReceipts exists and add the read receipt if it doesn't exist
+            const currentReadReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+            // console.log('🔵 Current read receipts:', currentReadReceipts);
+            
+            const updatedReadReceipts = currentReadReceipts.some(r => r && r.userId === data.userId) 
+              ? currentReadReceipts 
+              : [...currentReadReceipts, {
+                  id: data.messageId + data.userId,
+                  userId: data.userId,
+                  readAt: data.readAt.toString(),
+                  user: data.user
+                }];
+            
+            // console.log('🔵 Updated read receipts:', updatedReadReceipts);
+
+            // Calculate new status if this is sender's message
+            let newStatus = msg.status || 'sent';
+            if (msg.senderId === currentUserId && conversation && conversation.members) {
+              const otherMembers = conversation.members.filter(m => m && m.id !== currentUserId);
+              // console.log('🔵 Other members:', otherMembers);
+              
+              const allRead = otherMembers.every(member => 
+                updatedReadReceipts.some(r => r && r.userId === member.id)
+              );
+              
+              // console.log('🔵 All read check:', allRead);
+              newStatus = allRead ? 'read' as const : 'sent' as const;
+              // console.log('🔵 New status calculated:', newStatus);
+            }
+            
+            const updatedMessage = {
+              ...msg,
+              readReceipts: updatedReadReceipts,
+              status: newStatus
+            };
+            
+            // console.log('🔵 Updated message:', updatedMessage);
+            
+            // Force a re-render to ensure UI updates
+            setTimeout(() => setForceUpdate(prev => prev + 1), 100);
+            
+            return updatedMessage;
+          } catch (error) {
+            // console.error('🔴 Error updating message read status:', error, msg);
+            return msg;
+          }
+        });
+      });
     }
   });
 
@@ -260,6 +285,41 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [messages, chatId, currentUserId, markMessageRead]);
 
+  // Periodic status check and update
+  useEffect(() => {
+    if (!conversation || !currentUserId) return;
+
+    const interval = setInterval(() => {
+      setMessages(prev => {
+        let hasChanges = false;
+        const updated = prev.map(msg => {
+          if (msg.senderId === currentUserId && msg.status === 'sent') {
+            const readReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
+            const otherMembers = conversation.members.filter(m => m && m.id !== currentUserId);
+            const allRead = otherMembers.every(member => 
+              readReceipts.some(r => r && r.userId === member.id)
+            );
+            
+            if (allRead) {
+              // console.log('🔄 Periodic update: changing status to read for message', msg.id);
+              hasChanges = true;
+              return { ...msg, status: 'read' as const };
+            }
+          }
+          return msg;
+        });
+        
+        if (hasChanges) {
+          setForceUpdate(prev => prev + 1);
+        }
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 1000); // Check every second
+
+    return () => clearInterval(interval);
+  }, [conversation, currentUserId]);
+
   // Periodic check to mark unread messages as read
   useEffect(() => {
     if (!chatId || !currentUserId) return;
@@ -272,7 +332,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       });
       
       if (unreadMessages.length > 0) {
-        console.log('Periodic check: marking', unreadMessages.length, 'messages as read');
+        // console.log('Periodic check: marking', unreadMessages.length, 'messages as read');
         unreadMessages.forEach((msg: Message) => {
           markMessageRead(msg.id, chatId);
         });
@@ -319,7 +379,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         setOnlineUsers(new Set(onlineUserIds));
       }
     } catch (error) {
-      console.error('Error checking online status:', error);
+      // console.error('Error checking online status:', error);
     }
   };
 
@@ -359,10 +419,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           scrollToBottom();
         }, 100);
       } else {
-        console.error('Failed to fetch messages:', data.error);
+        // console.error('Failed to fetch messages:', data.error);
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      // console.error('Error fetching messages:', error);
     } finally {
       setLoading(false);
     }
@@ -384,7 +444,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         }));
       }
     } catch (error) {
-      console.error('Error fetching user last seen:', error);
+      // console.error('Error fetching user last seen:', error);
     }
   };
 
@@ -441,12 +501,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         if (data.success) {
           await fetchMessages();
         } else {
-          console.error('Failed to send message:', data.error);
+          // console.error('Failed to send message:', data.error);
           setNewMessage(messageContent);
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      // console.error('Error sending message:', error);
       setNewMessage(messageContent);
     } finally {
       setSending(false);
@@ -766,7 +826,15 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
                         {formatTime(message.createdAt)}
                       </p>
-                      <MessageStatus status={message.status} />
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-zinc-400">
+                          {message.status}
+                        </span>
+                        <MessageStatus 
+                          key={`${message.id}-${message.status}-${forceUpdate}`}
+                          status={message.status} 
+                        />
+                      </div>
                     </div>
                   )}
                   
