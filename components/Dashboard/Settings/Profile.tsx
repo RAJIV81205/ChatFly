@@ -20,8 +20,11 @@ const Profile = () => {
   const [form, setForm] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /* ---------------- Fetch profile ---------------- */
   useEffect(() => {
     const fetchProfile = async () => {
       const username = localStorage.getItem("username");
@@ -37,12 +40,13 @@ const Profile = () => {
     fetchProfile();
   }, []);
 
+  /* ---------------- Save profile ---------------- */
   const handleSave = async () => {
     if (!form) return;
     setSaving(true);
 
     const username = localStorage.getItem("username");
-      if (!username) return;
+    if (!username) return;
 
     await fetch(`/api/users/${username}`, {
       method: "PUT",
@@ -57,6 +61,43 @@ const Profile = () => {
     setSaving(false);
   };
 
+  /* ---------------- Avatar upload ---------------- */
+  const handleAvatarChange = async (file: File) => {
+    if (!form) return;
+
+    const username = localStorage.getItem("username");
+    if (!username) return;
+
+    // 🔹 Instant preview
+    const previewUrl = URL.createObjectURL(file);
+    setForm({ ...form, profilePicUrl: previewUrl });
+
+    setUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res = await fetch(`/api/users/${username}/avatar`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!json.success) throw new Error("Upload failed");
+
+      // 🔹 Replace preview with real URL from backend
+      setForm((prev) =>
+        prev ? { ...prev, profilePicUrl: json.profilePicUrl } : prev
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   if (loading || !form) return <div className="p-8">Loading…</div>;
 
   return (
@@ -65,12 +106,19 @@ const Profile = () => {
 
         {/* Header */}
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+          <div className="relative h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
             {form.profilePicUrl && (
               <img
                 src={form.profilePicUrl}
                 className="h-full w-full object-cover"
               />
+            )}
+
+            {/* Uploading overlay */}
+            {uploadingAvatar && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-xs text-white">
+                Uploading…
+              </div>
             )}
           </div>
 
@@ -93,12 +141,14 @@ const Profile = () => {
             type="file"
             hidden
             accept="image/*"
+            onChange={(e) =>
+              e.target.files && handleAvatarChange(e.target.files[0])
+            }
           />
         </div>
 
         {/* Form */}
         <div className="space-y-6">
-
           <Field label="Full name">
             <input
               value={form.fullName}
@@ -182,15 +232,3 @@ const Field = ({
     {children}
   </div>
 );
-
-/* ---------- Input Style ----------
-Add once to globals.css:
-
-.input {
-  @apply w-full px-3 py-2 rounded-lg
-  border border-zinc-300 dark:border-zinc-700
-  bg-white dark:bg-zinc-900
-  text-zinc-900 dark:text-white
-  focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white;
-}
--------------------------------- */

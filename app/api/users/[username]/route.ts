@@ -125,6 +125,7 @@ export async function PUT(
         fullName,
         phone,
         bio,
+        updatedAt: new Date(),
       },
     });
 
@@ -142,5 +143,57 @@ export async function PUT(
 
 
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ username: string }> }
+) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Verify token
+    const currentUser = await verifyToken(token);
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "Invalid token" },
+        { status: 401 }
+      );
+    }
+
+    const { username } = await params;
+    const isSelf = currentUser.username === username;
+
+    if (!isSelf) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 403 }
+      );
+    }
+
+    // Delete user
+    await prisma.user.delete({
+      where: { username },
+    });
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error deleting user profile:", error);
+    return NextResponse.json(
+      { error: "Failed to delete user profile" },
+      { status: 500 }
+    );
+  }
+}
+
 
 
