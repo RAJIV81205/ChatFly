@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle } from "lucide-react";
 import Cropper from "react-easy-crop";
 
+/* ---------------- Types ---------------- */
 interface UserProfile {
   id: string;
   username: string;
@@ -75,7 +76,6 @@ const Profile = () => {
     const username = localStorage.getItem("username");
     if (!username) return;
 
-    // 🔹 Instant preview
     const previewUrl = URL.createObjectURL(file);
     setForm({ ...form, profilePicUrl: previewUrl });
 
@@ -93,12 +93,10 @@ const Profile = () => {
       const json = await res.json();
       if (!json.success) throw new Error("Upload failed");
 
-      // 🔹 Replace preview with real URL from backend
       setForm((prev) =>
         prev ? { ...prev, profilePicUrl: json.profilePicUrl } : prev
       );
     } catch (err) {
-      console.error(err);
       alert("Failed to upload avatar");
     } finally {
       setUploadingAvatar(false);
@@ -110,37 +108,53 @@ const Profile = () => {
   return (
     <div className="flex-1 bg-white dark:bg-zinc-900">
       <div className="max-w-2xl mx-auto px-6 py-10 space-y-10">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <div className="relative h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-            {form.profilePicUrl && (
-              <img
-                src={form.profilePicUrl}
-                className="h-full w-full object-cover"
-              />
-            )}
+        {/* ---------------- Header ---------------- */}
+        <div className="flex items-center gap-5">
+          <div
+            className="relative group cursor-pointer"
+            onClick={() => fileRef.current?.click()}
+          >
+            <div
+              className="relative h-20 w-20 rounded-full overflow-hidden 
+              bg-linear-to-br from-zinc-200 to-zinc-300 
+              dark:from-zinc-700 dark:to-zinc-800
+              ring-2 ring-zinc-300 dark:ring-zinc-700 transition"
+            >
+              {form.profilePicUrl ? (
+                <img
+                  src={form.profilePicUrl}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-xl font-semibold text-zinc-500">
+                  {form.fullName.charAt(0)}
+                </div>
+              )}
 
-            {/* Uploading overlay */}
-            {uploadingAvatar && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-xs text-white">
-                Uploading…
+              {uploadingAvatar && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-xs text-white backdrop-blur-sm">
+                  Uploading…
+                </div>
+              )}
+
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-xs text-white">
+                Change
               </div>
-            )}
+            </div>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 leading-tight">
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
               {form.fullName}
             </h1>
             <p className="text-sm text-zinc-500">@{form.username}</p>
           </div>
 
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="text-sm px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          >
-            Change
-          </button>
+          {/* ---------------- Meta ---------------- */}
+          <div className="text-xs text-zinc-500 space-y-1">
+            <p>Created · {new Date(form.createdAt).toDateString()}</p>
+            <p>Updated · {new Date(form.updatedAt).toDateString()}</p>
+          </div>
 
           <input
             ref={fileRef}
@@ -154,13 +168,13 @@ const Profile = () => {
           />
         </div>
 
-        {/* Form */}
-        <div className="space-y-6">
+        {/* ---------------- Form Card ---------------- */}
+        <div className="space-y-6 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-6 border border-zinc-200 dark:border-zinc-700">
           <Field label="Full name">
             <input
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-              className="input"
+              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white outline-none"
             />
           </Field>
 
@@ -169,10 +183,13 @@ const Profile = () => {
               <input
                 value={form.email}
                 disabled
-                className="input bg-zinc-50 dark:bg-zinc-800 cursor-default"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 px-3 py-2 text-sm"
               />
               {form.emailVerified && (
-                <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+                <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                  <CheckCircle className="h-4 w-4" />
+                  Verified
+                </span>
               )}
             </div>
           </Field>
@@ -183,7 +200,7 @@ const Profile = () => {
               onChange={(e) =>
                 setForm({ ...form, phone: e.target.value || null })
               }
-              className="input"
+              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white outline-none"
             />
           </Field>
 
@@ -194,30 +211,26 @@ const Profile = () => {
               onChange={(e) =>
                 setForm({ ...form, bio: e.target.value || null })
               }
-              className="input resize-none"
+              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white outline-none"
             />
           </Field>
         </div>
 
-        {/* Meta */}
-        <div className="text-xs text-zinc-500 space-y-1">
-          <p>Created · {new Date(form.createdAt).toDateString()}</p>
-          <p>Updated · {new Date(form.updatedAt).toDateString()}</p>
-        </div>
-
-        {/* Save */}
+        {/* ---------------- Save ---------------- */}
         <div>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-5 py-2 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 disabled:opacity-50"
+            className="px-6 py-2.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90 disabled:opacity-50 transition"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
       </div>
+
+      {/* ---------------- Avatar Editor (unchanged logic) ---------------- */}
       {editorImage && (
-        <div className="fixed inset-0 z-50 bg-black/70  backdrop-blur-md flex items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center">
           <div className="bg-white dark:bg-zinc-900 w-[90vw] max-w-lg rounded-xl p-4 space-y-4">
             <div className="relative h-64 bg-black rounded-lg overflow-hidden">
               <Cropper
@@ -233,8 +246,8 @@ const Profile = () => {
               />
             </div>
 
-            <div className="flex flex-row justify-around ">
-              <div className="flex flex-col justify-center items-center space-y-1">
+            <div className="flex justify-around">
+              <div className="flex flex-col items-center space-y-1">
                 <input
                   type="range"
                   min={1}
@@ -246,7 +259,7 @@ const Profile = () => {
                 <label className="text-xs">Zoom</label>
               </div>
 
-              <div className="flex flex-col justify-center items-center space-y-1">
+              <div className="flex flex-col items-center space-y-1">
                 <input
                   type="range"
                   min={0}
@@ -261,7 +274,7 @@ const Profile = () => {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => {
-                  setEditorImage(null)
+                  setEditorImage(null);
                   setCrop({ x: 0, y: 0 });
                   setCroppedPixels(null);
                   setZoom(1);
@@ -282,7 +295,7 @@ const Profile = () => {
                   );
                   setEditorImage(null);
                   handleAvatarChange(file);
-                     setCrop({ x: 0, y: 0 });
+                  setCrop({ x: 0, y: 0 });
                   setCroppedPixels(null);
                   setZoom(1);
                   setRotation(0);
@@ -301,7 +314,7 @@ const Profile = () => {
 
 export default Profile;
 
-/* ---------- Field ---------- */
+/* ---------------- Field ---------------- */
 const Field = ({
   label,
   children,
@@ -317,6 +330,7 @@ const Field = ({
   </div>
 );
 
+/* ---------------- Image helpers ---------------- */
 const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image();
