@@ -39,7 +39,6 @@ export const EMOJI_GROUPS = {
 
 export type EmojiGroup = keyof typeof EMOJI_GROUPS;
 
-
 export interface EmojiItem {
   emoji: string;
   group: EmojiGroup;
@@ -55,35 +54,51 @@ const CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
 let memoryCache: EmojiItem[] | null = null;
 
 export async function getEmojis(): Promise<EmojiItem[]> {
+  // In-memory cache (fastest)
   if (memoryCache) return memoryCache;
 
-  const cached = localStorage.getItem(CACHE_KEY);
-  if (cached) {
-    const parsed = JSON.parse(cached);
-    if (Date.now() - parsed.timestamp < CACHE_TTL) {
-      memoryCache = parsed.data;
-      return parsed.data;
+  // localStorage cache (client-only)
+  if (typeof window !== "undefined") {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < CACHE_TTL) {
+        memoryCache = parsed.data;
+        return parsed.data;
+      }
     }
   }
 
-  const res = await fetch("https://www.emoji.family/api/emojis");
+  // 🔥 FETCH FROM PROXY (NO CORS)
+  const res = await fetch("/api/emojis");
+  if (!res.ok) throw new Error("Failed to load emojis");
+
   const raw = await res.json();
 
   const emojis: EmojiItem[] = raw
-    .filter((e: any) => e.group) // safety
+    .filter(
+      (e: any) =>
+        e.group && e.group in EMOJI_GROUPS // 🔐 type safety
+    )
     .map((e: any) => ({
       emoji: e.emoji,
-      group: e.group,
-      subgroup: e.subgroup,
-      annotation: e.annotation,
+      group: e.group as EmojiGroup,
+      subgroup: e.subgroup || "",
+      annotation: e.annotation || "",
       tags: e.tags || [],
       shortcodes: e.shortcodes || [],
     }));
 
-  localStorage.setItem(
-    CACHE_KEY,
-    JSON.stringify({ timestamp: Date.now(), data: emojis })
-  );
+  // Persist cache
+  if (typeof window !== "undefined") {
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data: emojis,
+      })
+    );
+  }
 
   memoryCache = emojis;
   return emojis;

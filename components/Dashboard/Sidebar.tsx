@@ -21,7 +21,7 @@ const navItems = [
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   const navRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLDivElement>(null);
@@ -55,17 +55,15 @@ const Sidebar = () => {
   useEffect(() => {
     if (!mounted || !navRef.current || !indicatorRef.current) return;
 
-    const index = navItems.findIndex(
-      (item) => item.link === pathname
-    );
-    
+    const index = navItems.findIndex((item) => item.link === pathname);
+
     // Hide indicator if we're on settings or no main nav item is active
     if (index === -1 || pathname === "/dashboard/settings") {
       gsap.set(indicatorRef.current, {
         opacity: 0,
         height: 0,
       });
-      
+
       // Reset all main nav items scale
       gsap.to(Array.from(navRef.current.children), {
         scale: 1,
@@ -94,9 +92,7 @@ const Sidebar = () => {
 
     // Reset others
     gsap.to(
-      Array.from(navRef.current.children).filter(
-        (_, i) => i !== index
-      ),
+      Array.from(navRef.current.children).filter((_, i) => i !== index),
       {
         scale: 1,
         duration: 0.2,
@@ -144,7 +140,7 @@ const Sidebar = () => {
           {pathname === "/dashboard/settings" && (
             <div className="absolute inset-0 rounded-xl bg-zinc-900 dark:bg-white z-0" />
           )}
-          
+
           <IconButton
             icon={<Settings />}
             link="/dashboard/settings"
@@ -153,10 +149,10 @@ const Sidebar = () => {
         </div>
 
         <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
-          {theme === "dark" ? (
+          {resolvedTheme === "dark" ? (
             <Sun className="h-5 w-5 text-zinc-300" />
           ) : (
             <Moon className="h-5 w-5 text-zinc-700" />
