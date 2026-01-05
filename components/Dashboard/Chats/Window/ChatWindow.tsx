@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSocket } from "@/lib/hooks/useSocket";
 import { MessageStatus } from "./MessageStatus";
 import MessageInput from "./MessageInput";
+import Contact from "./Contact";
 
 interface User {
   id: string;
@@ -13,6 +14,8 @@ interface User {
   username: string;
   profilePicUrl: string | null;
   lastSeen?: string;
+  bio?:string;
+  createdAt?: string;
 }
 
 interface Message {
@@ -54,6 +57,7 @@ interface ChatWindowProps {
 }
 
 const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
+  const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,6 +67,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [userLastSeen, setUserLastSeen] = useState<{[userId: string]: string}>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
+  const [showContactModal, setShowContactModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -131,26 +136,18 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       });
     },
     onMessageRead: (data) => {
-      // console.log('🔵 Message read event received:', data);
-      // console.log('🔵 Current messages before update:', messages.length);
-      // console.log('🔵 Current user ID:', currentUserId);
-      // console.log('🔵 Conversation members:', conversation?.members);
+     
       
       // Update message status when someone reads it
       setMessages(prev => {
-        // console.log('🔵 Processing messages:', prev.length);
         return prev.map(msg => {
           // Safety check for message object
           if (!msg || !msg.id || msg.id !== data.messageId) {
             return msg;
           }
-
-          // console.log('🔵 Found matching message:', msg.id, 'sender:', msg.senderId, 'current status:', msg.status);
-
           try {
             // Ensure readReceipts exists and add the read receipt if it doesn't exist
             const currentReadReceipts = Array.isArray(msg.readReceipts) ? msg.readReceipts : [];
-            // console.log('🔵 Current read receipts:', currentReadReceipts);
             
             const updatedReadReceipts = currentReadReceipts.some(r => r && r.userId === data.userId) 
               ? currentReadReceipts 
@@ -160,8 +157,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                   readAt: data.readAt.toString(),
                   user: data.user
                 }];
-            
-            // console.log('🔵 Updated read receipts:', updatedReadReceipts);
+    
 
             // Calculate new status if this is sender's message
             let newStatus = msg.status || 'sent';
@@ -173,9 +169,8 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                 updatedReadReceipts.some(r => r && r.userId === member.id)
               );
               
-              // console.log('🔵 All read check:', allRead);
               newStatus = allRead ? 'read' as const : 'sent' as const;
-              // console.log('🔵 New status calculated:', newStatus);
+
             }
             
             const updatedMessage = {
@@ -191,7 +186,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             
             return updatedMessage;
           } catch (error) {
-            // console.error('🔴 Error updating message read status:', error, msg);
+            console.error('🔴 Error updating message read status:', error, msg);
             return msg;
           }
         });
@@ -357,6 +352,18 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     return () => clearInterval(interval);
   }, [messages, chatId, currentUserId, markMessageRead]);
 
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showContactModal) {
+        setShowContactModal(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showContactModal]);
+
   // Cleanup effect
   useEffect(() => {
     return () => {
@@ -399,7 +406,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         setOnlineUsers(new Set(onlineUserIds));
       }
     } catch (error) {
-      // console.error('Error checking online status:', error);
+      console.error('Error checking online status:', error);
     }
   };
 
@@ -439,10 +446,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           scrollToBottom();
         }, 100);
       } else {
-        // console.error('Failed to fetch messages:', data.error);
+        console.error('Failed to fetch messages:', data.error);
       }
     } catch (error) {
-      // console.error('Error fetching messages:', error);
+      console.error('Error fetching messages:', error);
     } finally {
       setLoading(false);
     }
@@ -462,9 +469,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           ...prev,
           [otherUser.id]: data.user.lastSeen
         }));
+        setUser(data.user)
       }
     } catch (error) {
-      // console.error('Error fetching user last seen:', error);
+       console.error('Error fetching user last seen:', error);
     }
   };
 
@@ -764,9 +772,14 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
                 <Video className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
               </button>
-              <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
-                <MoreHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
-              </button>
+              <div className="relative">
+                <button 
+                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
+                  onClick={() => setShowContactModal(true)}
+                >
+                  <MoreHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -903,6 +916,31 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         onInputChange={handleInputChange}
       />
     </div>
+
+    {/* Contact Modal */}
+    {showContactModal && conversation?.type === 'PRIVATE' && (
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowContactModal(false);
+          }
+        }}
+      >
+        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl max-w-md w-full mx-4">
+          <Contact 
+            user={user}
+            conversation={conversation}
+            currentUserId={currentUserId}
+            onlineUsers={onlineUsers}
+            userLastSeen={userLastSeen}
+            formatLastSeen={formatLastSeen}
+            isUserOnline={isUserOnline}
+            onClose={() => setShowContactModal(false)}
+          />
+        </div>
+      </div>
+    )}
     </>
   );
 };
