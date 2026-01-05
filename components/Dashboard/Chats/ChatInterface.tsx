@@ -24,23 +24,24 @@ const ChatInterface = () => {
       const authToken = await getTokenForSocket();
       setToken(authToken);
     };
-    
+
     fetchToken();
-    
+
     // Get current user info from the chats API
     fetchCurrentUser();
   }, []);
 
   const fetchCurrentUser = async () => {
+    const username = localStorage.getItem("username");
     try {
-      const response = await fetch('/api/chats');
+      const response = await fetch(`/api/users/${username}`);
       const data = await response.json();
 
       if (data.success) {
         setCurrentUser(data.user);
       }
     } catch (error) {
-      console.error('Error fetching current user:', error);
+      console.error("Error fetching current user:", error);
     }
   };
 
@@ -50,15 +51,18 @@ const ChatInterface = () => {
 
   return (
     <div className="flex h-full">
-      <ChatList 
+      <ChatList
         onChatSelect={handleChatSelect}
         selectedChatId={selectedChatId}
       />
-      <ChatWindow 
-        chatId={selectedChatId}
-        currentUserId={currentUser?.id || null}
-        token={token || undefined}
-      />
+
+      {currentUser && token && (
+        <ChatWindow
+          chatId={selectedChatId}
+          currentUserId={currentUser.id}
+          token={token}
+        />
+      )}
     </div>
   );
 };
