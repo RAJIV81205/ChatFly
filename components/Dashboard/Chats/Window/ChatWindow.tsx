@@ -7,7 +7,6 @@ import { useSocket } from "@/lib/hooks/useSocket";
 import { MessageStatus } from "./MessageStatus";
 import MessageInput from "./MessageInput";
 
-
 interface User {
   id: string;
   fullName: string;

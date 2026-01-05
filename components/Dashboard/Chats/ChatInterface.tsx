@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import ChatList from "./ChatList";
-import ChatWindow from "./ChatWindow";
+import ChatWindow from "./Window/ChatWindow";
 import { getTokenForSocket } from "@/lib/utils/auth";
 
 interface User {

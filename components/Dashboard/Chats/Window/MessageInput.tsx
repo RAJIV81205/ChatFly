@@ -132,12 +132,12 @@ const MessageInput = ({
         <button
           type="submit"
           disabled={!newMessage.trim() || sending}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg hover:scale-105 transition disabled:from-zinc-300 dark:disabled:from-zinc-700 disabled:cursor-not-allowed"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-emerald-600 text-white shadow-lg hover:scale-105 transition disabled:from-zinc-300 dark:disabled:from-zinc-700 disabled:cursor-not-allowed"
         >
           {sending ? (
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
           ) : (
-            <Send className="h-5 w-5 translate-x-[1px]" />
+            <Send className="h-5 w-5 translate-x-px" />
           )}
         </button>
       </form>

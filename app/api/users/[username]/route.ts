@@ -56,6 +56,8 @@ export async function GET(
           fullName: true,
           profilePicUrl: true,
           lastSeen: true,
+          createdAt:true,
+          bio: true,
         },
     });
 
