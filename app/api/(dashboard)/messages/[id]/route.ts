@@ -96,15 +96,15 @@ export async function GET(
     }));
 
     // Determine message type
-    let messageType: 'text' | 'image' | 'video' | 'file' = 'text';
+    let messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' = 'TEXT';
     if (message.files.length > 0) {
       const firstFile = message.files[0];
       if (firstFile.mimeType?.startsWith('image/')) {
-        messageType = 'image';
+        messageType = 'IMAGE';
       } else if (firstFile.mimeType?.startsWith('video/')) {
-        messageType = 'video';
+        messageType = 'VIDEO';
       } else {
-        messageType = 'file';
+        messageType = 'FILE';
       }
     }
 

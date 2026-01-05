@@ -746,7 +746,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     console.log("File upload triggered:", file.name, file.type);
 
     // Validate file type and size
-    const maxSize = 10 * 1024 * 1024; // 100MB (matching backend)
+    const maxSize = 10 * 1024 * 1024; // 10MB (matching backend)
     if (file.size > maxSize) {
       alert("File size must be less than 100MB");
       return;
