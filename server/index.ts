@@ -85,7 +85,7 @@ io.on('connection', async (socket: Socket) => {
   const userId = authenticatedSocket.userId;
   const user = authenticatedSocket.user;
 
-  // console.log(`User ${user.fullName} connected`);
+  console.log(`User ${user.fullName} connected`);
 
   // Add user to online users (support multiple connections)
   if (!onlineUsers.has(userId)) {
@@ -165,7 +165,9 @@ io.on('connection', async (socket: Socket) => {
       });
 
       // Decrypt message for real-time broadcast
-      const decryptedContent = decryptMessage(message.content, message.contentIv);
+      const decryptedContent = message.content && message.contentIv 
+        ? decryptMessage(message.content, message.contentIv)
+        : null;
 
       const messageData = {
         id: message.id,
@@ -216,6 +218,37 @@ io.on('connection', async (socket: Socket) => {
     } catch (error) {
       // console.error('Error sending message:', error);
       authenticatedSocket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  // Handle file message notification (for when files are uploaded via HTTP)
+  authenticatedSocket.on('notify_file_message', async (data: any) => {
+    try {
+      const { messageId, conversationId } = data;
+
+      // Verify user is member of conversation
+      const membership = await prisma.conversationMember.findFirst({
+        where: {
+          conversationId: conversationId,
+          userId: userId
+        }
+      });
+
+      if (!membership) {
+        authenticatedSocket.emit('error', { message: 'Not authorized to access this conversation' });
+        return;
+      }
+
+      // Broadcast file message notification to conversation room
+      io.to(`conversation:${conversationId}`).emit('file_message_uploaded', {
+        messageId: messageId,
+        conversationId: conversationId,
+        senderId: userId
+      });
+
+    } catch (error) {
+      console.error('Error notifying file message:', error);
+      authenticatedSocket.emit('error', { message: 'Failed to notify file message' });
     }
   });
 
@@ -430,15 +463,15 @@ app.get('/api/users/online-status', (req: any, res: any) => {
 const PORT = process.env.WEBSOCKET_PORT || 3001;
 
 server.listen(PORT, () => {
-  // console.log(`Real-time messaging server running on port ${PORT}`);
+  console.log(`Real-time messaging server running on port ${PORT}`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  // console.log('Shutting down server...');
+  console.log('Shutting down server...');
   await prisma.$disconnect();
   server.close(() => {
-    // console.log('Server closed');
+    console.log('Server closed');
     process.exit(0);
   });
 });

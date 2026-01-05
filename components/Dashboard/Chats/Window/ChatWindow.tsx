@@ -95,7 +95,8 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     joinConversation,
     leaveConversation,
     isUserOnline,
-    getTypingUsersInConversation
+    getTypingUsersInConversation,
+    notifyFileMessage
   } = useSocket({
     token,
     onNewMessage: (message) => {
@@ -122,6 +123,29 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       if (safeMessage.senderId !== currentUserId && chatId) {
         // console.log('Auto-marking new message as read');
         markMessageRead(safeMessage.id, chatId);
+      }
+    },
+    onFileMessageUploaded: async (data) => {
+      // Don't add the message if it's from the current user (they already have it)
+      if (data.senderId === currentUserId) {
+        return;
+      }
+      
+      // Fetch the specific message and add it to the messages
+      try {
+        const response = await fetch(`/api/messages/${data.messageId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          setMessages(prev => [...prev, result.message]);
+          
+          // Mark as read if it's not from current user and chat is open
+          if (result.message.senderId !== currentUserId && chatId) {
+            markMessageRead(result.message.id, chatId);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching uploaded file message:', error);
       }
     },
     onUserTyping: (data) => {
@@ -717,7 +741,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       formData.append('conversationId', chatId);
       formData.append('senderId', currentUserId);
 
-      // Upload file first (without messageId for now)
+      // Upload file
       const response = await fetch('/api/messages/upload', {
         method: 'POST',
         body: formData,
@@ -726,43 +750,13 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       const data = await response.json();
 
       if (data.success) {
-        // Determine message type
-        const messageType: 'text' | 'image' | 'video' | 'file' = 
-          selectedFile.type.startsWith('image/') ? 'image' : 
-          selectedFile.type.startsWith('video/') ? 'video' : 'file';
-
+        // Notify other users via socket about the new file message
         if (isConnected) {
-          // Send via WebSocket with file info
-          socketSendMessage(chatId, selectedFile.name, [{
-            type: messageType,
-            fileUrl: data.encryptedUrl,
-            fileName: selectedFile.name,
-            fileSize: data.fileSize,
-            mimeType: data.mimeType,
-            thumbnail: data.thumbnail
-          }]);
-        } else {
-          // Fallback to HTTP API
-          await fetch('/api/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              content: selectedFile.name,
-              senderId: currentUserId,
-              conversationId: chatId,
-              type: messageType,
-              fileUrl: data.encryptedUrl,
-              fileName: selectedFile.name,
-              fileSize: data.fileSize,
-              mimeType: data.mimeType,
-              thumbnail: data.thumbnail
-            }),
-          });
+          notifyFileMessage(data.messageId, chatId);
         }
-
-        await fetchMessages();
+        
+        // Add the message to our own UI immediately
+        setMessages(prev => [...prev, data.message]);
       } else {
         alert('Failed to upload file: ' + data.error);
       }

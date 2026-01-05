@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message,
+      messageId: message.id, // Include message ID for socket notification
     });
   } catch (error) {
     console.error("File upload error:", error);

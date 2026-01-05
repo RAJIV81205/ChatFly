@@ -87,7 +87,11 @@ export async function GET(request: NextRequest) {
         if (conversation.messages.length > 0) {
           const msg = conversation.messages[0];
           try {
-            const decryptedContent = decrypt(msg.content, msg.contentIv);
+            // Only decrypt if both content and contentIv exist
+            const decryptedContent = msg.content && msg.contentIv 
+              ? decrypt(msg.content, msg.contentIv)
+              : 'File message';
+            
             lastMessage = {
               id: msg.id,
               content: decryptedContent,

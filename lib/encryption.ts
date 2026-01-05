@@ -41,6 +41,10 @@ export function encryptMessage(content: string): { content: string; contentIv: s
  * Decrypt message content
  */
 export function decryptMessage(encryptedContent: string, iv: string): string {
+  if (!encryptedContent || !iv) {
+    throw new Error('Both encryptedContent and iv are required for decryption');
+  }
+  
   const key = getEncryptionKey();
   const ivBuffer = Buffer.from(iv, 'hex');
   
@@ -124,7 +128,10 @@ export function decryptFileName(encryptedFileName: string, iv: string): string {
 /**
  * Decrypt message content (simplified version for API compatibility)
  */
-export function decrypt(encryptedContent: string, iv: string): string {
+export function decrypt(encryptedContent: string | null, iv: string | null): string {
+  if (!encryptedContent || !iv) {
+    throw new Error('Both encryptedContent and iv are required for decryption');
+  }
   return decryptMessage(encryptedContent, iv);
 }
 /**

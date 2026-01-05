@@ -11,6 +11,7 @@ interface UseSocketOptions {
   onUserOnline?: (data: { userId: string; user: any }) => void;
   onUserOffline?: (data: { userId: string; lastSeen: Date }) => void;
   onMessageRead?: (data: { messageId: string; userId: string; user: any; readAt: Date }) => void;
+  onFileMessageUploaded?: (data: { messageId: string; conversationId: string; senderId: string }) => void;
 }
 
 export const useSocket = (options: UseSocketOptions = {}) => {
@@ -94,6 +95,11 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       options.onMessageRead?.(data);
     });
 
+    // File message uploaded event
+    socket.on('file_message_uploaded', (data) => {
+      options.onFileMessageUploaded?.(data);
+    });
+
     socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
@@ -163,6 +169,12 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     return typing;
   };
 
+  const notifyFileMessage = (messageId: string, conversationId: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('notify_file_message', { messageId, conversationId });
+    }
+  };
+
   return {
     isConnected,
     onlineUsers,
@@ -175,6 +187,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     leaveConversation,
     isUserOnline,
     isUserTyping,
-    getTypingUsersInConversation
+    getTypingUsersInConversation,
+    notifyFileMessage
   };
 };
