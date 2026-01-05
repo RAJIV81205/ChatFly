@@ -79,7 +79,13 @@ export async function GET(
       where: {
         conversationId
       },
-      include: {
+      select: {
+        id: true,
+        type: true, // Include the stored message type
+        content: true,
+        contentIv: true,
+        senderId: true,
+        createdAt: true,
         sender: {
           select: {
             id: true,
@@ -114,6 +120,7 @@ export async function GET(
       })
     });
 
+
     // Get conversation members to calculate status
     const memberIds = conversation.members.map((member: { userId: any; }) => member.userId);
 
@@ -145,16 +152,15 @@ export async function GET(
             }
           }).filter(Boolean);
           
-          // Determine message type based on files
-          let messageType: 'text' | 'image' | 'video' | 'file' = 'text';
+           let messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' = 'TEXT';
           if (decryptedFiles.length > 0) {
             const firstFile = decryptedFiles[0];
             if (firstFile.mimeType?.startsWith('image/')) {
-              messageType = 'image';
+              messageType = 'IMAGE';
             } else if (firstFile.mimeType?.startsWith('video/')) {
-              messageType = 'video';
+              messageType = 'VIDEO';
             } else {
-              messageType = 'file';
+              messageType = 'FILE';
             }
           }
           
