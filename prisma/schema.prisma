@@ -21,6 +21,19 @@ enum ConversationType {
   GROUP
 }
 
+enum MessageType {
+  TEXT
+  FILE
+  MIXED
+  SYSTEM
+}
+
+enum FileStatus {
+  ACTIVE
+  REVOKED
+  DELETED
+}
+
 /**
  * =========================
  * USER
@@ -35,9 +48,9 @@ model User {
   phone    String @unique
   password String
 
-  profilePicUrl String?
-  profilePicPublicId String? 
-  bio           String?
+  profilePicUrl      String?
+  profilePicPublicId String?
+  bio                String?
 
   emailVerified Boolean   @default(false)
   lastSeen      DateTime?
@@ -45,12 +58,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /**
-   * Relations
-   */
   messages      Message[]
   readReceipts  ReadReceipt[]
   conversations ConversationMember[]
+  uploadedFiles MessageFile[]
 }
 
 /**
@@ -78,7 +89,7 @@ model EmailOTP {
 model Conversation {
   id        String           @id @default(uuid())
   type      ConversationType
-  name      String? // Only for GROUP
+  name      String? // Group name
   createdAt DateTime         @default(now())
 
   members  ConversationMember[]
@@ -92,10 +103,11 @@ model Conversation {
  */
 
 model ConversationMember {
-  id             String  @id @default(uuid())
+  id             String   @id @default(uuid())
   conversationId String
   userId         String
-  isAdmin        Boolean @default(false)
+  isAdmin        Boolean  @default(false)
+  joinedAt       DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -110,11 +122,18 @@ model ConversationMember {
  */
 
 model Message {
-  id             String @id @default(uuid())
-  content        String // Encrypted content
-  contentIv      String // Initialization vector for content encryption
+  id   String      @id @default(uuid())
+  type MessageType 
+
+
+  content   String? // Encrypted text (nullable for file-only)
+  contentIv String?
+
   senderId       String
   conversationId String
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -123,6 +142,8 @@ model Message {
   conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   readReceipts ReadReceipt[]
   files        MessageFile[]
+
+  @@index([conversationId, createdAt])
 }
 
 /**
@@ -150,16 +171,27 @@ model ReadReceipt {
  */
 
 model MessageFile {
-  id        String @id @default(uuid())
-  messageId String
-  fileName  String // Encrypted filename
-  fileNameIv String // IV for filename encryption
-  fileUrl   String // Encrypted file URL
-  fileUrlIv String // IV for file URL encryption
-  fileSize  Int?
-  mimeType  String?
+  id         String @id @default(uuid())
+  messageId  String
+  uploaderId String
 
-  createdAt DateTime @default(now())
+  fileName   String // Encrypted filename
+  fileNameIv String
 
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileUrl   String // Encrypted Cloudinary URL
+  fileUrlIv String
+
+  cloudinaryPublicId String
+
+  fileSize Int?
+  mimeType String?
+  status   FileStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  message  Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploader User    @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
 }
