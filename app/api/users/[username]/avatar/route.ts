@@ -3,49 +3,8 @@ import { cookies } from "next/headers";
 import prisma from "@/lib/db/prisma";
 import { verifyToken } from "@/lib/middleware/verifyToken";
 import cloudinary from "cloudinary";
-import sharp from "sharp";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
-/* ---------------- Cloudinary config ---------------- */
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-});
-
-/* ---------------- Upload helper ---------------- */
-async function uploadToCloudinary(
-  file: File
-): Promise<{ url: string; publicId: string }> {
-  const inputBuffer = Buffer.from(await file.arrayBuffer());
-
-  const optimizedBuffer = await sharp(inputBuffer)
-    .rotate() // fix EXIF orientation
-    .webp({
-      quality: 80,
-      effort: 4,
-    })
-    .toBuffer();
-
-  return new Promise((resolve, reject) => {
-    cloudinary.v2.uploader.upload_stream(
-      {
-        folder: "avatars",
-        resource_type: "image",
-        format: "webp",
-      },
-      (error, result) => {
-        if (error || !result) return reject(error);
-
-        resolve({
-          url: result.secure_url,
-          publicId: result.public_id,
-        });
-      }
-    ).end(optimizedBuffer);
-  });
-}
-
-/* ---------------- Route ---------------- */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ username: string }> }
@@ -65,7 +24,8 @@ export async function POST(
     }
 
     /* ---------- Authorization ---------- */
-    const { username } = await params
+    const { username } = await params;
+
     if (currentUser.username !== username) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -98,7 +58,10 @@ export async function POST(
     }
 
     /* ---------- Upload new avatar ---------- */
-    const { url, publicId } = await uploadToCloudinary(file);
+    const { url, publicId } = await uploadToCloudinary(
+      file,
+      `avatars/${currentUser.id}`
+    );
 
     /* ---------- DB update ---------- */
     await prisma.user.update({
