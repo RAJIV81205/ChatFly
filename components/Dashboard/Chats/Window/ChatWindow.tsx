@@ -142,15 +142,15 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       }
     },
     onFileMessageUploaded: async (data) => {
-      console.log(data)
       // Don't add the message if it's from the current user (they already have it)
+   
       if (data.senderId === currentUserId) {
         return;
       }
 
       // Fetch the specific message and add it to the messages
       try {
-        console.log(data)
+        
         const response = await fetch(`/api/messages/${data.messageId}`);
         const result = await response.json();
 

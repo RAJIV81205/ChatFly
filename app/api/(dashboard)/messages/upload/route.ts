@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: formattedMessage,
+      messageId : message.id
     });
   } catch (error) {
     console.error("File upload error:", error);
