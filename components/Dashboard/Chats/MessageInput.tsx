@@ -1,4 +1,8 @@
+"use client";
+
 import { Paperclip, Smile, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import EmojiPicker from "./EmojiPicker";
 
 interface MessageInputProps {
   newMessage: string;
@@ -6,12 +10,13 @@ interface MessageInputProps {
   sending: boolean;
   isConnected: boolean;
   conversation: {
-    type: 'PRIVATE' | 'GROUP';
+    type: "PRIVATE" | "GROUP";
     name: string;
   } | null;
   onSendMessage: (e: React.FormEvent) => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
+
 
 const MessageInput = ({
   newMessage,
@@ -20,65 +25,130 @@ const MessageInput = ({
   isConnected,
   conversation,
   onSendMessage,
-  onInputChange
+  onInputChange,
 }: MessageInputProps) => {
-    return (
-          <div className="bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 p-4">
-        
-        
-        <form onSubmit={onSendMessage} className="flex items-end gap-3">
-          <div className="flex-1">
-            <div className="relative">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={onInputChange}
-                placeholder={
-                  conversation?.type === 'PRIVATE' 
-                    ? `Message ${conversation.name}...` 
-                    : "Write your message..."
-                }
-                disabled={sending}
-                className="w-full px-4 py-3 pr-20 bg-zinc-100 dark:bg-zinc-800 border-0 rounded-xl text-sm text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <button
-                  type="button"
-                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition"
-                >
-                  <Paperclip className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                </button>
-                <button
-                  type="button"
-                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition"
-                >
-                  <Smile className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                </button>
-              </div>
-            </div>
-          </div>
-          
+  const [showEmoji, setShowEmoji] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const emojiRef = useRef<HTMLDivElement>(null);
+
+  // Close emoji picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+        setShowEmoji(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const addEmoji = (emoji: string) => {
+    if (!inputRef.current) return;
+
+    const start = inputRef.current.selectionStart || 0;
+    const end = inputRef.current.selectionEnd || 0;
+
+    const updated = newMessage.slice(0, start) + emoji + newMessage.slice(end);
+
+    setNewMessage(updated);
+    setShowEmoji(false);
+
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(
+        start + emoji.length,
+        start + emoji.length
+      );
+    });
+  };
+
+  return (
+    <div className="relative border-t border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
+      <form onSubmit={onSendMessage} className="flex items-end gap-3 px-4 py-3">
+        {/* Emoji Button (LEFT) */}
+        <div className="relative" ref={emojiRef}>
           <button
-            type="submit"
-            disabled={!newMessage.trim() || sending}
-            className="p-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white rounded-xl transition disabled:cursor-not-allowed"
+            type="button"
+            onClick={() => setShowEmoji((v) => !v)}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
           >
-            {sending ? (
-              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
+            <Smile className="h-5 w-5 text-zinc-600 dark:text-zinc-300" />
           </button>
-        </form>
-        
-        {/* Connection Status */}
-        {!isConnected && (
-          <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            Real-time messaging unavailable - using fallback mode
-          </div>
-        )}
-      </div>
-    );
-}
+
+          {/* Emoji Picker */}
+          {showEmoji && (
+            <div className="absolute bottom-14 left-0 z-50">
+              <EmojiPicker
+                onSelect={(emoji) => {
+                  const input = inputRef.current!;
+                  const start = input.selectionStart || 0;
+                  const end = input.selectionEnd || 0;
+
+                  const updated =
+                    newMessage.slice(0, start) + emoji + newMessage.slice(end);
+
+                  setNewMessage(updated);
+                  setShowEmoji(false);
+
+                  requestAnimationFrame(() => {
+                    input.focus();
+                    input.setSelectionRange(
+                      start + emoji.length,
+                      start + emoji.length
+                    );
+                  });
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="relative flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={newMessage}
+            onChange={onInputChange}
+            disabled={sending}
+            placeholder={
+              conversation?.type === "PRIVATE"
+                ? `Message ${conversation.name}…`
+                : "Type a message…"
+            }
+            className="w-full rounded-2xl bg-zinc-100 dark:bg-zinc-800 px-4 py-3 pr-14 text-sm text-zinc-900 dark:text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 disabled:opacity-50"
+          />
+
+          {/* Attachment */}
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-700 transition"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Send */}
+        <button
+          type="submit"
+          disabled={!newMessage.trim() || sending}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg hover:scale-105 transition disabled:from-zinc-300 dark:disabled:from-zinc-700 disabled:cursor-not-allowed"
+        >
+          {sending ? (
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          ) : (
+            <Send className="h-5 w-5 translate-x-[1px]" />
+          )}
+        </button>
+      </form>
+
+      {!isConnected && (
+        <div className="px-4 pb-2 text-xs text-amber-600 dark:text-amber-400">
+          ⚠ Real-time messaging unavailable — messages may be delayed
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default MessageInput;
