@@ -105,7 +105,7 @@ const Login = () => {
       }
 
       // success → redirect / set auth state
-      console.log("Logged in successfully:", data);
+      // console.log("Logged in successfully:", data);
       // Redirect to dashboard
       window.location.href = "/dashboard";
       

@@ -7,7 +7,7 @@ interface MessageStatusProps {
 }
 
 export const MessageStatus = memo(({ status, className = "" }: MessageStatusProps) => {
-//   console.log('🎨 MessageStatus rendering:', status);
+//   // console.log('🎨 MessageStatus rendering:', status);
   
   if (status === 'read') {
     return (

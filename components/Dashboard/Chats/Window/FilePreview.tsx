@@ -26,13 +26,13 @@ const FilePreview = ({
   onCancel,
   uploading,
 }: FilePreviewProps) => {
-  console.log('FilePreview rendered with:', { fileName: file.name, previewUrl, uploading });
+  // console.log('FilePreview rendered with:', { fileName: file.name, previewUrl, uploading });
   
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
   const isPdf = file.type === "application/pdf";
 
-  console.log('File types:', { isImage, isVideo, isPdf, fileType: file.type });
+  // console.log('File types:', { isImage, isVideo, isPdf, fileType: file.type });
 
   /* ---------- Crop state ---------- */
   const [crop, setCrop] = useState({ x: 0, y: 0 });

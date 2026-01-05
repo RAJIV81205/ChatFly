@@ -109,7 +109,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   } = useSocket({
     token,
     onNewMessage: (message) => {
-      // console.log('New message received:', message);
+      // // console.log('New message received:', message);
 
       // Ensure message has proper structure
       const safeMessage = {
@@ -137,11 +137,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
       // Mark message as read immediately if it's not from current user and chat is open
       if (safeMessage.senderId !== currentUserId && chatId) {
-        // console.log('Auto-marking new message as read');
+        // // console.log('Auto-marking new message as read');
         markMessageRead(safeMessage.id, chatId);
       }
     },
     onFileMessageUploaded: async (data) => {
+      console.log(data)
       // Don't add the message if it's from the current user (they already have it)
       if (data.senderId === currentUserId) {
         return;
@@ -149,6 +150,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
       // Fetch the specific message and add it to the messages
       try {
+        console.log(data)
         const response = await fetch(`/api/messages/${data.messageId}`);
         const result = await response.json();
 
@@ -166,10 +168,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     },
     onUserTyping: (data) => {
       // Handle typing indicators
-      // console.log(`${data.user.fullName} is typing in ${data.conversationId}`);
+      // // console.log(`${data.user.fullName} is typing in ${data.conversationId}`);
     },
     onUserStoppedTyping: (data) => {
-      // console.log(`${data.userId} stopped typing in ${data.conversationId}`);
+      // // console.log(`${data.userId} stopped typing in ${data.conversationId}`);
     },
     onUserOnline: (data) => {
       // Update online status when user comes online
@@ -225,7 +227,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               const otherMembers = conversation.members.filter(
                 (m) => m && m.id !== currentUserId
               );
-              // console.log('🔵 Other members:', otherMembers);
+              // // console.log('🔵 Other members:', otherMembers);
 
               const allRead = otherMembers.every((member) =>
                 updatedReadReceipts.some((r) => r && r.userId === member.id)
@@ -240,7 +242,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               status: newStatus,
             };
 
-            // console.log('🔵 Updated message:', updatedMessage);
+            // // console.log('🔵 Updated message:', updatedMessage);
 
             // Force a re-render to ensure UI updates
             setTimeout(() => setForceUpdate((prev) => prev + 1), 100);
@@ -385,7 +387,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             );
 
             if (allRead) {
-              // console.log('🔄 Periodic update: changing status to read for message', msg.id);
+              // // console.log('🔄 Periodic update: changing status to read for message', msg.id);
               hasChanges = true;
               return { ...msg, status: "read" as const };
             }
@@ -420,7 +422,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       });
 
       if (unreadMessages.length > 0) {
-        // console.log('Periodic check: marking', unreadMessages.length, 'messages as read');
+        // // console.log('Periodic check: marking', unreadMessages.length, 'messages as read');
         unreadMessages.forEach((msg: Message) => {
           markMessageRead(msg.id, chatId);
         });
@@ -743,7 +745,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const handleFileUpload = async (file: File) => {
     if (!chatId || !currentUserId || uploadingFile) return;
 
-    console.log("File upload triggered:", file.name, file.type);
+    // console.log("File upload triggered:", file.name, file.type);
 
     // Validate file type and size
     const maxSize = 10 * 1024 * 1024; // 10MB (matching backend)
@@ -774,8 +776,8 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     setSelectedFile(file);
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
-    console.log("Setting preview URL:", url);
-    console.log("Setting showFilePreview to true");
+    // console.log("Setting preview URL:", url);
+    // console.log("Setting showFilePreview to true");
     setShowFilePreview(true);
   };
 

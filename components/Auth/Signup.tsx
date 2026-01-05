@@ -159,7 +159,7 @@ export default function Signup() {
       setUsernameStatus((prev) => ({ ...prev, isChecking: true }));
 
       try {
-        console.log("Checking username:", username); // Debug log
+        // console.log("Checking username:", username); // Debug log
 
         const response = await fetch("/api/auth/checkusername", {
           method: "POST",
@@ -169,10 +169,10 @@ export default function Signup() {
           body: JSON.stringify({ username }),
         });
 
-        console.log("Response status:", response.status); // Debug log
+        // console.log("Response status:", response.status); // Debug log
 
         const data = await response.json();
-        console.log("Response data:", data); // Debug log
+        // console.log("Response data:", data); // Debug log
 
         if (response.ok) {
           setUsernameStatus({
@@ -334,7 +334,7 @@ export default function Signup() {
 
       
 
-      console.log("OTP Sent", data);
+      // console.log("OTP Sent", data);
 
       // Set OTP expiry time
       if (data.otpExpiresAt) {
@@ -392,7 +392,7 @@ export default function Signup() {
       }
 
       // Handle successful signup
-      console.log("Signup successful!", data);
+      // console.log("Signup successful!", data);
       
       // You can redirect to dashboard or login page here
       // window.location.href = "/dashboard";

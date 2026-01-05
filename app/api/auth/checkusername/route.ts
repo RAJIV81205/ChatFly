@@ -16,7 +16,7 @@ export async function POST(request: Request) {
             }
         });
 
-        console.log("User found:", !!user); // Debug log
+        // console.log("User found:", !!user); // Debug log
 
         if (!user) {
             return NextResponse.json({ "message": "Username Available" }, { status: 200 })

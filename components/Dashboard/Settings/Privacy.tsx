@@ -14,7 +14,7 @@ const Privacy = () => {
 
     const handlePrivacySave = () => {
         // Handle privacy save logic here
-        console.log('Saving privacy:', privacyData);
+        // console.log('Saving privacy:', privacyData);
         alert('Privacy settings saved!');
     };
 
