@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/middleware/verifyToken';
 import prisma from '@/lib/db/prisma';
-import { decrypt } from '@/lib/encryption';
+import { decrypt, decryptFileUrl, decryptFileName } from '@/lib/encryption';
 
 export async function GET(
   request: NextRequest,
@@ -88,6 +88,11 @@ export async function GET(
             profilePicUrl: true
           }
         },
+        files: {
+          where: {
+            status: 'ACTIVE'
+          }
+        },
         readReceipts: {
           include: {
             user: {
@@ -116,7 +121,42 @@ export async function GET(
     const decryptedMessages = await Promise.all(
       messages.map(async (message: any) => {
         try {
-          const decryptedContent = decrypt(message.content, message.contentIv);
+          const decryptedContent = message.content && message.contentIv 
+            ? decrypt(message.content, message.contentIv)
+            : null;
+          
+          // Decrypt file information
+          const decryptedFiles = message.files.map((file: any) => {
+            try {
+              const decryptedFileName = decryptFileName(file.fileName, file.fileNameIv);
+              const decryptedFileUrl = decryptFileUrl(file.fileUrl, file.fileUrlIv);
+              
+              return {
+                id: file.id,
+                fileName: decryptedFileName,
+                fileUrl: decryptedFileUrl,
+                fileSize: file.fileSize,
+                mimeType: file.mimeType,
+                createdAt: file.createdAt
+              };
+            } catch (error) {
+              console.error('Failed to decrypt file:', error);
+              return null;
+            }
+          }).filter(Boolean);
+          
+          // Determine message type based on files
+          let messageType: 'text' | 'image' | 'video' | 'file' = 'text';
+          if (decryptedFiles.length > 0) {
+            const firstFile = decryptedFiles[0];
+            if (firstFile.mimeType?.startsWith('image/')) {
+              messageType = 'image';
+            } else if (firstFile.mimeType?.startsWith('video/')) {
+              messageType = 'video';
+            } else {
+              messageType = 'file';
+            }
+          }
           
           // Calculate message status for sender's messages
           let status: 'sent' | 'read' = 'sent';
@@ -143,6 +183,11 @@ export async function GET(
             senderId: message.senderId,
             sender: message.sender,
             createdAt: message.createdAt,
+            type: messageType,
+            fileUrl: decryptedFiles[0]?.fileUrl,
+            fileName: decryptedFiles[0]?.fileName,
+            fileSize: decryptedFiles[0]?.fileSize,
+            mimeType: decryptedFiles[0]?.mimeType,
             readReceipts: message.readReceipts,
             status
           };
@@ -154,6 +199,7 @@ export async function GET(
             senderId: message.senderId,
             sender: message.sender,
             createdAt: message.createdAt,
+            type: 'text' as const,
             readReceipts: message.readReceipts,
             status: 'sent' as const
           };

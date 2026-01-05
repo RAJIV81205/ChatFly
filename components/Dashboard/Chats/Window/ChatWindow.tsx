@@ -7,6 +7,7 @@ import { useSocket } from "@/lib/hooks/useSocket";
 import { MessageStatus } from "./MessageStatus";
 import MessageInput from "./MessageInput";
 import Contact from "./Contact";
+import FilePreview from "./FilePreview";
 
 interface User {
   id: string;
@@ -24,6 +25,12 @@ interface Message {
   senderId: string;
   sender: User;
   createdAt: string;
+  type: 'text' | 'image' | 'video' | 'file';
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  thumbnail?: string;
   readReceipts?: Array<{
     id: string;
     userId: string;
@@ -68,6 +75,11 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
   const [showContactModal, setShowContactModal] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showFilePreview, setShowFilePreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -493,7 +505,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     try {
       // Use WebSocket if connected, fallback to HTTP
       if (isConnected) {
-        socketSendMessage(chatId, messageContent);
+        socketSendMessage(chatId, messageContent, []);
         // Optimistically add the message to UI
         const tempMessage: Message = {
           id: 'temp-' + Date.now(),
@@ -506,6 +518,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             profilePicUrl: null
           },
           createdAt: new Date().toISOString(),
+          type: 'text',
           readReceipts: [],
           status: 'sent'
         };
@@ -655,6 +668,231 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     return currentDate !== previousDate;
   };
 
+  const handleFileUpload = async (file: File) => {
+    if (!chatId || !currentUserId || uploadingFile) return;
+
+    console.log('File upload triggered:', file.name, file.type);
+
+    // Validate file type and size
+    const maxSize = 10 * 1024 * 1024; // 100MB (matching backend)
+    if (file.size > maxSize) {
+      alert('File size must be less than 100MB');
+      return;
+    }
+
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/webm', 'video/quicktime',
+      'application/pdf', 'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert('File type not supported');
+      return;
+    }
+
+    // Show preview instead of uploading immediately
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    console.log('Setting preview URL:', url);
+    console.log('Setting showFilePreview to true');
+    setShowFilePreview(true);
+  };
+
+  const handleFileConfirm = async (processedFile?: File | Blob) => {
+    if (!selectedFile || !chatId || !currentUserId) return;
+
+    setUploadingFile(true);
+    setShowFilePreview(false);
+
+    try {
+      // Use processed file if available (for edited images), otherwise use original
+      const fileToUpload = processedFile || selectedFile;
+      
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('conversationId', chatId);
+      formData.append('senderId', currentUserId);
+
+      // Upload file first (without messageId for now)
+      const response = await fetch('/api/messages/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Determine message type
+        const messageType: 'text' | 'image' | 'video' | 'file' = 
+          selectedFile.type.startsWith('image/') ? 'image' : 
+          selectedFile.type.startsWith('video/') ? 'video' : 'file';
+
+        if (isConnected) {
+          // Send via WebSocket with file info
+          socketSendMessage(chatId, selectedFile.name, [{
+            type: messageType,
+            fileUrl: data.encryptedUrl,
+            fileName: selectedFile.name,
+            fileSize: data.fileSize,
+            mimeType: data.mimeType,
+            thumbnail: data.thumbnail
+          }]);
+        } else {
+          // Fallback to HTTP API
+          await fetch('/api/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              content: selectedFile.name,
+              senderId: currentUserId,
+              conversationId: chatId,
+              type: messageType,
+              fileUrl: data.encryptedUrl,
+              fileName: selectedFile.name,
+              fileSize: data.fileSize,
+              mimeType: data.mimeType,
+              thumbnail: data.thumbnail
+            }),
+          });
+        }
+
+        await fetchMessages();
+      } else {
+        alert('Failed to upload file: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file');
+    } finally {
+      setUploadingFile(false);
+      setSelectedFile(null);
+      setPreviewUrl('');
+      URL.revokeObjectURL(previewUrl);
+    }
+  };
+
+  const handleFileCancel = () => {
+    setShowFilePreview(false);
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const renderMessageContent = (message: Message) => {
+    // For file URLs, check if they're already decrypted or need to be served through our API
+    const getFileUrl = (fileUrl?: string) => {
+      if (!fileUrl) return '';
+      
+      // If it's already a full URL (decrypted), use it directly
+      if (fileUrl.startsWith('http')) {
+        return fileUrl;
+      }
+      
+      // If it's encrypted (contains :), serve through our API
+      if (fileUrl.includes(':')) {
+        return `/api/files/${encodeURIComponent(fileUrl)}`;
+      }
+      
+      // Fallback
+      return fileUrl;
+    };
+
+    switch (message.type) {
+      case 'image':
+        return (
+          <div className="max-w-xs">
+            <img
+              src={getFileUrl(message.fileUrl)}
+              alt={message.fileName || 'Image'}
+              className="rounded-lg max-w-full h-auto cursor-pointer"
+              onClick={() => window.open(getFileUrl(message.fileUrl), '_blank')}
+            />
+            {message.content && message.content !== message.fileName && (
+              <p className="text-sm mt-2">{message.content}</p>
+            )}
+          </div>
+        );
+      
+      case 'video':
+        return (
+          <div className="max-w-xs">
+            <video
+              src={getFileUrl(message.fileUrl)}
+              controls
+              className="rounded-lg max-w-full h-auto"
+              preload="metadata"
+              poster={message.thumbnail ? getFileUrl(message.thumbnail) : undefined}
+            />
+            {message.content && message.content !== message.fileName && (
+              <p className="text-sm mt-2">{message.content}</p>
+            )}
+          </div>
+        );
+      
+      case 'file':
+        return (
+          <div className="flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-700 rounded-lg max-w-xs">
+            <div className="w-10 h-10 bg-zinc-200 dark:bg-zinc-600 rounded-lg flex items-center justify-center">
+              <Paperclip className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
+                {message.fileName || 'File'}
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {message.fileSize ? formatFileSize(message.fileSize) : 'Unknown size'}
+              </p>
+            </div>
+            <button
+              onClick={() => window.open(getFileUrl(message.fileUrl), '_blank')}
+              className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+            >
+              Open
+            </button>
+          </div>
+        );
+      
+      default:
+        return <p className="text-sm">{message.content}</p>;
+    }
+  };
+
   if (!chatId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
@@ -798,7 +1036,29 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div 
+        className={`flex-1 overflow-y-auto p-6 space-y-4 relative ${
+          dragOver ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''
+        }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        {dragOver && (
+          <div className="absolute inset-0 flex items-center justify-center bg-emerald-100/80 dark:bg-emerald-900/40 backdrop-blur-sm z-10">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center mx-auto mb-4">
+                <Paperclip className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-lg font-medium text-emerald-700 dark:text-emerald-300">
+                Drop file to send
+              </p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                Images, videos, and documents supported
+              </p>
+            </div>
+          </div>
+        )}
         {messages.map((message, index) => {
           const isOwnMessage = message.senderId === currentUserId;
           const previousMessage = index > 0 ? messages[index - 1] : null;
@@ -851,7 +1111,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                         : 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700'
                     }`}
                   >
-                    <p className="text-sm">{message.content}</p>
+                    {renderMessageContent(message)}
                   </div>
 
                   {isOwnMessage && (
@@ -910,10 +1170,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         newMessage={newMessage}
         setNewMessage={setNewMessage}
         sending={sending}
+        uploadingFile={uploadingFile}
         isConnected={isConnected}
         conversation={conversation}
         onSendMessage={sendMessage}
         onInputChange={handleInputChange}
+        onFileUpload={handleFileUpload}
       />
     </div>
 
@@ -940,6 +1202,29 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           />
         </div>
       </div>
+    )}
+
+    {/* File Preview Modal */}
+    {showFilePreview && selectedFile && (
+      <>
+        {console.log('Rendering FilePreview modal', { showFilePreview, selectedFile: selectedFile?.name })}
+        <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
+          <div className="bg-white p-8 rounded-lg">
+            <h2>File Preview Test</h2>
+            <p>File: {selectedFile.name}</p>
+            <button onClick={handleFileCancel} className="bg-red-500 text-white px-4 py-2 rounded">
+              Close
+            </button>
+          </div>
+        </div>
+        <FilePreview
+          file={selectedFile}
+          previewUrl={previewUrl}
+          onConfirm={handleFileConfirm}
+          onCancel={handleFileCancel}
+          uploading={uploadingFile}
+        />
+      </>
     )}
     </>
   );

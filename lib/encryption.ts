@@ -83,6 +83,14 @@ export function decryptFileUrl(encryptedUrl: string, iv: string): string {
 }
 
 /**
+ * Decrypt file URL with combined format (iv:encrypted)
+ */
+export function decryptCombinedFileUrl(combinedUrl: string): string {
+  const [ivHex, encryptedData] = combinedUrl.split(':');
+  return decryptFileUrl(encryptedData, ivHex);
+}
+
+/**
  * Encrypt filename
  */
 export function encryptFileName(fileName: string): { fileName: string; fileNameIv: string } {

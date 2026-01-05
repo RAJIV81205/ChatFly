@@ -173,6 +173,13 @@ io.on('connection', async (socket: Socket) => {
         senderId: userId,
         conversationId: conversationId,
         createdAt: message.createdAt,
+        type: message.files && message.files.length > 0 ? 
+          (message.files[0].mimeType?.startsWith('image/') ? 'image' : 
+           message.files[0].mimeType?.startsWith('video/') ? 'video' : 'file') : 'text',
+        fileUrl: message.files?.[0] ? decryptFileUrl(message.files[0].fileUrl, message.files[0].fileUrlIv) : undefined,
+        fileName: message.files?.[0] ? decryptFileName(message.files[0].fileName, message.files[0].fileNameIv) : undefined,
+        fileSize: message.files?.[0]?.fileSize,
+        mimeType: message.files?.[0]?.mimeType,
         sender: message.sender,
         files: message.files.map((file: any) => ({
           ...file,

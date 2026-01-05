@@ -1,20 +1,25 @@
-import prisma from '../prisma';
-import { 
-  encryptMessage, 
-  decryptMessage, 
-  encryptFileUrl, 
-  decryptFileUrl, 
-  encryptFileName, 
-  decryptFileName 
-} from '../../encryption';
+import prisma from "../prisma";
+import {
+  encryptMessage,
+  decryptMessage,
+  encryptFileUrl,
+  decryptFileUrl,
+  encryptFileName,
+  decryptFileName,
+} from "../../encryption";
+
+/* ======================================================
+   TYPES
+====================================================== */
 
 export interface CreateMessageData {
-  content: string;
+  content?: string;
   senderId: string;
   conversationId: string;
   files?: {
     fileName: string;
     fileUrl: string;
+    cloudinaryPublicId: string;
     fileSize?: number;
     mimeType?: string;
   }[];
@@ -22,7 +27,8 @@ export interface CreateMessageData {
 
 export interface DecryptedMessage {
   id: string;
-  content: string;
+  type: "TEXT" | "FILE" | "MIXED" | "SYSTEM";
+  content: string | null;
   senderId: string;
   conversationId: string;
   createdAt: Date;
@@ -50,35 +56,53 @@ export interface DecryptedMessage {
       fullName: string;
     };
   }[];
-  status: 'sent' | 'read';
+  status: "sent" | "read";
 }
 
-/**
- * Create a new encrypted message
- */
+/* ======================================================
+   HELPERS
+====================================================== */
+
+function resolveMessageType(
+  content?: string,
+  files?: any[]
+): "TEXT" | "FILE" | "MIXED" {
+  if (content && files?.length) return "MIXED";
+  if (files?.length) return "FILE";
+  return "TEXT";
+}
+
+/* ======================================================
+   CREATE MESSAGE
+====================================================== */
+
 export async function createMessage(data: CreateMessageData) {
   const { content, senderId, conversationId, files = [] } = data;
-  
-  // Encrypt message content
-  const { content: encryptedContent, contentIv } = encryptMessage(content);
-  
-  // Create message with encrypted files
-  const message = await prisma.message.create({
+
+  const type = resolveMessageType(content, files);
+
+  const encrypted =
+    content != null ? encryptMessage(content) : { content: null, contentIv: null };
+
+  return prisma.message.create({
     data: {
-      content: encryptedContent,
-      contentIv,
+      type,
+      content: encrypted.content,
+      contentIv: encrypted.contentIv,
       senderId,
       conversationId,
       files: {
-        create: files.map(file => {
-          const { fileName: encryptedFileName, fileNameIv } = encryptFileName(file.fileName);
-          const { fileUrl: encryptedFileUrl, fileUrlIv } = encryptFileUrl(file.fileUrl);
-          
+        create: files.map((file) => {
+          const { fileName, fileNameIv } = encryptFileName(file.fileName);
+          const { fileUrl, fileUrlIv } = encryptFileUrl(file.fileUrl);
+
           return {
-            fileName: encryptedFileName,
+            uploaderId: senderId,
+            fileName,
             fileNameIv,
-            fileUrl: encryptedFileUrl,
+            fileUrl,
             fileUrlIv,
+            cloudinaryPublicId: file.cloudinaryPublicId,
             fileSize: file.fileSize,
             mimeType: file.mimeType,
           };
@@ -97,21 +121,23 @@ export async function createMessage(data: CreateMessageData) {
       files: true,
     },
   });
-  
-  return message;
 }
 
-/**
- * Get messages for a conversation with decryption and status calculation
- */
+/* ======================================================
+   GET CONVERSATION MESSAGES
+====================================================== */
+
 export async function getConversationMessages(
   conversationId: string,
-  limit: number = 50,
+  limit = 50,
   cursor?: string,
   currentUserId?: string
 ): Promise<DecryptedMessage[]> {
   const messages = await prisma.message.findMany({
-    where: { conversationId },
+    where: {
+      conversationId,
+      isDeleted: false,
+    },
     include: {
       sender: {
         select: {
@@ -121,84 +147,71 @@ export async function getConversationMessages(
           profilePicUrl: true,
         },
       },
-      files: true,
+      files: {
+        where: { status: "ACTIVE" },
+      },
       readReceipts: {
         include: {
           user: {
-            select: {
-              id: true,
-              fullName: true,
-            },
+            select: { id: true, fullName: true },
           },
         },
       },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     take: limit,
-    ...(cursor && {
-      cursor: { id: cursor },
-      skip: 1,
-    }),
+    ...(cursor && { cursor: { id: cursor }, skip: 1 }),
   });
-  
-  // Get conversation members to calculate status
+
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
     include: {
-      members: {
-        select: {
-          userId: true,
-        },
-      },
+      members: { select: { userId: true } },
     },
   });
-  
-  const memberIds = conversation?.members.map((m: { userId: any; }) => m.userId) || [];
-  
-  // Decrypt messages and calculate status
-  const decryptedMessages = messages.map((message: any) => {
-    const decryptedMessage = {
-      ...message,
-      content: decryptMessage(message.content, message.contentIv),
-      files: message.files.map((file: any) => ({
+
+  const memberIds = conversation?.members.map((m: { userId: any; }) => m.userId) ?? [];
+
+  return messages
+    .map((message: { content: string; contentIv: string; files: any[]; senderId: string; readReceipts: any[]; }) => {
+      const content =
+        message.content && message.contentIv
+          ? decryptMessage(message.content, message.contentIv)
+          : null;
+
+      const files = message.files.map((file) => ({
         ...file,
         fileName: decryptFileName(file.fileName, file.fileNameIv),
         fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv),
-      })),
-    };
-    
-    // Calculate message status for sender's messages
-    let status: 'sent' | 'read' = 'sent';
-    
-    if (currentUserId && message.senderId === currentUserId) {
-      // Get other members (excluding sender)
-      const otherMembers = memberIds.filter((id: string) => id !== currentUserId);
-      
-      if (otherMembers.length > 0) {
-        // Check if all other members have read the message
-        const allRead = otherMembers.every((memberId: any) =>
-          message.readReceipts.some((receipt: any) => receipt.userId === memberId)
+      }));
+
+      let status: "sent" | "read" = "sent";
+
+      if (currentUserId && message.senderId === currentUserId) {
+        const otherMembers = memberIds.filter((id: string) => id !== currentUserId);
+        const allRead = otherMembers.every((id: any) =>
+          message.readReceipts.some((r) => r.userId === id)
         );
-        
-        if (allRead) {
-          status = 'read';
-        }
+        if (allRead) status = "read";
       }
-    }
-    
-    return {
-      ...decryptedMessage,
-      status,
-    };
-  }).reverse();
-  
-  return decryptedMessages;
+
+      return {
+        ...message,
+        content,
+        files,
+        status,
+      };
+    })
+    .reverse();
 }
 
-/**
- * Get a single message by ID with decryption
- */
-export async function getMessageById(messageId: string): Promise<DecryptedMessage | null> {
+/* ======================================================
+   GET MESSAGE BY ID
+====================================================== */
+
+export async function getMessageById(
+  messageId: string
+): Promise<DecryptedMessage | null> {
   const message = await prisma.message.findUnique({
     where: { id: messageId },
     include: {
@@ -211,59 +224,73 @@ export async function getMessageById(messageId: string): Promise<DecryptedMessag
         },
       },
       files: true,
+      readReceipts: {
+        include: {
+          user: { select: { id: true, fullName: true } },
+        },
+      },
     },
   });
-  
+
   if (!message) return null;
-  
+
   return {
     ...message,
-    content: decryptMessage(message.content, message.contentIv),
-    files: message.files.map((file: any) => ({
+    content:
+      message.content && message.contentIv
+        ? decryptMessage(message.content, message.contentIv)
+        : null,
+    files: message.files.map((file: { fileName: string; fileNameIv: string; fileUrl: string; fileUrlIv: string; }) => ({
       ...file,
       fileName: decryptFileName(file.fileName, file.fileNameIv),
       fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv),
     })),
+    status: "sent",
   };
 }
 
-/**
- * Update message content (re-encrypt)
- */
+/* ======================================================
+   UPDATE MESSAGE
+====================================================== */
+
 export async function updateMessage(messageId: string, newContent: string) {
-  const { content: encryptedContent, contentIv } = encryptMessage(newContent);
-  
-  return await prisma.message.update({
+  const encrypted = encryptMessage(newContent);
+
+  return prisma.message.update({
     where: { id: messageId },
     data: {
-      content: encryptedContent,
-      contentIv,
+      content: encrypted.content,
+      contentIv: encrypted.contentIv,
       updatedAt: new Date(),
     },
   });
 }
 
-/**
- * Delete a message
- */
+/* ======================================================
+   DELETE MESSAGE (SOFT)
+====================================================== */
+
 export async function deleteMessage(messageId: string) {
-  return await prisma.message.delete({
+  return prisma.message.update({
     where: { id: messageId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+    },
   });
 }
 
-/**
- * Search messages (requires decryption for matching)
- */
+/* ======================================================
+   SEARCH MESSAGES
+====================================================== */
+
 export async function searchMessages(
   conversationId: string,
   searchTerm: string,
-  limit: number = 20
+  limit = 20
 ): Promise<DecryptedMessage[]> {
-  // Note: This is not efficient for large datasets as it requires decrypting all messages
-  // For production, consider using a separate search index or full-text search
   const messages = await prisma.message.findMany({
-    where: { conversationId },
+    where: { conversationId, isDeleted: false },
     include: {
       sender: {
         select: {
@@ -275,23 +302,24 @@ export async function searchMessages(
       },
       files: true,
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
   });
-  
-  // Decrypt and filter messages
-  const decryptedMessages = messages.map((message: any) => ({
-    ...message,
-    content: decryptMessage(message.content, message.contentIv),
-    files: message.files.map((file: any) => ({
-      ...file,
-      fileName: decryptFileName(file.fileName, file.fileNameIv),
-      fileUrl: decryptFileUrl(file.fileUrl, file.fileUrlIv),
-    })),
-  }));
-  
-  return decryptedMessages
-    .filter((message: any) => 
-      message.content.toLowerCase().includes(searchTerm.toLowerCase())
+
+  return messages
+    .map((m: { content: string; contentIv: string; files: { fileName: string; fileNameIv: string; fileUrl: string; fileUrlIv: string; }[]; }) => ({
+      ...m,
+      content:
+        m.content && m.contentIv
+          ? decryptMessage(m.content, m.contentIv)
+          : null,
+      files: m.files.map((f: { fileName: string; fileNameIv: string; fileUrl: string; fileUrlIv: string; }) => ({
+        ...f,
+        fileName: decryptFileName(f.fileName, f.fileNameIv),
+        fileUrl: decryptFileUrl(f.fileUrl, f.fileUrlIv),
+      })),
+    }))
+    .filter((m: { content: string; }) =>
+      m.content?.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .slice(0, limit);
 }

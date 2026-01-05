@@ -8,6 +8,7 @@ interface MessageInputProps {
   newMessage: string;
   setNewMessage: (value: string) => void;
   sending: boolean;
+  uploadingFile: boolean;
   isConnected: boolean;
   conversation: {
     type: "PRIVATE" | "GROUP";
@@ -15,6 +16,7 @@ interface MessageInputProps {
   } | null;
   onSendMessage: (e: React.FormEvent) => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileUpload: (file: File) => void;
 }
 
 
@@ -22,13 +24,16 @@ const MessageInput = ({
   newMessage,
   setNewMessage,
   sending,
+  uploadingFile,
   isConnected,
   conversation,
   onSendMessage,
   onInputChange,
+  onFileUpload,
 }: MessageInputProps) => {
   const [showEmoji, setShowEmoji] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
 
   // Close emoji picker on outside click
@@ -60,6 +65,15 @@ const MessageInput = ({
         start + emoji.length
       );
     });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onFileUpload(file);
+      // Reset the input so the same file can be selected again
+      e.target.value = '';
+    }
   };
 
   return (
@@ -120,11 +134,24 @@ const MessageInput = ({
           />
 
           {/* Attachment */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,.pdf,.doc,.docx"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
           <button
             type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-700 transition"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingFile}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-700 transition disabled:opacity-50"
           >
-            <Paperclip className="h-4 w-4" />
+            {uploadingFile ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400 border-t-transparent" />
+            ) : (
+              <Paperclip className="h-4 w-4" />
+            )}
           </button>
         </div>
 
