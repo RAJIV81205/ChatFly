@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle , Save, LogOut, Loader2} from "lucide-react";
 import Cropper from "react-easy-crop";
 
 /* ---------------- Types ---------------- */
@@ -100,6 +100,24 @@ const Profile = () => {
       alert("Failed to upload avatar");
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include", // IMPORTANT
+      });
+    } catch (err) {
+      console.error("Logout failed", err);
+    } finally {
+      // Clear client storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Reload or redirect
+      window.location.href = "/auth/login"; // or window.location.reload();
     }
   };
 
@@ -216,14 +234,33 @@ const Profile = () => {
           </Field>
         </div>
 
-        {/* ---------------- Save ---------------- */}
-        <div>
+        <div className="flex gap-3">
+          {/* Save */}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90 disabled:opacity-50 transition"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-medium hover:opacity-90 disabled:opacity-50 transition"
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save changes
+              </>
+            )}
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
           </button>
         </div>
       </div>
