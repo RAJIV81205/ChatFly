@@ -64,6 +64,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onlineStatusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -243,6 +244,20 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     return () => clearTimeout(timer);
   }, [messages]);
 
+  // Auto-scroll when typing indicators appear/disappear
+  useEffect(() => {
+    if (chatId) {
+      const typingUsers = getTypingUsersInConversation(chatId);
+      if (typingUsers.length > 0) {
+        // Small delay to ensure typing indicator is rendered
+        const timer = setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [chatId, getTypingUsersInConversation]);
+
   // Handle visibility change to mark messages as read when user returns to tab
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -355,7 +370,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   }, []);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Check if typing indicator is visible and scroll to it, otherwise scroll to messages end
+    if (typingIndicatorRef.current) {
+      typingIndicatorRef.current.scrollIntoView({ behavior: "smooth" });
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   const checkOnlineStatus = async () => {
@@ -850,7 +870,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         })}
         <div ref={messagesEndRef} />
         {chatId && getTypingUsersInConversation(chatId).length > 0 && (
-          <div className="mb-3 flex items-center gap-3">
+          <div ref={typingIndicatorRef} className="mb-3 flex items-center gap-3">
             <div className="shrink-0">
               <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
                 <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
