@@ -109,9 +109,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   } = useSocket({
     token,
     onNewMessage: (message) => {
-      // // console.log('New message received:', message);
-
-      // Ensure message has proper structure
       const safeMessage = {
         ...message,
         readReceipts: Array.isArray(message.readReceipts)
@@ -142,13 +139,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       }
     },
     onFileMessageUploaded: async (data) => {
-      // Don't add the message if it's from the current user (they already have it)
-   
+  
       if (data.senderId === currentUserId) {
         return;
       }
-
-      // Fetch the specific message and add it to the messages
       try {
         
         const response = await fetch(`/api/messages/${data.messageId}`);
@@ -165,13 +159,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       } catch (error) {
         console.error("Error fetching uploaded file message:", error);
       }
-    },
-    onUserTyping: (data) => {
-      // Handle typing indicators
-      // // console.log(`${data.user.fullName} is typing in ${data.conversationId}`);
-    },
-    onUserStoppedTyping: (data) => {
-      // // console.log(`${data.userId} stopped typing in ${data.conversationId}`);
     },
     onUserOnline: (data) => {
       // Update online status when user comes online
