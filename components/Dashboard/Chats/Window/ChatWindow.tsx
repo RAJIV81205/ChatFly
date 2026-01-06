@@ -147,6 +147,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     notifyFileMessage,
   } = useSocket({
     token,
+    currentUserId: currentUserId || undefined,
     onNewMessage: (message) => {
       const safeMessage = {
         ...message,

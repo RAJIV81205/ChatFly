@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search, Plus, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
 import NewChatModal from "./NewChatModal";
@@ -53,6 +53,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const [token, setToken] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<{[chatId: string]: string[]}>({});
   const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -94,19 +95,24 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     getTypingUsersInConversation,
   } = useSocket({
     token: token || undefined,
+    currentUserId: user?.id,
     onUserTyping: useCallback((data: { userId: string; username: string; conversationId: string }) => {
-      setTypingUsers(prev => {
-        const chatTyping = prev[data.conversationId] || [];
-        if (!chatTyping.includes(data.username)) {
-          return {
-            ...prev,
-            [data.conversationId]: [...chatTyping, data.username]
-          };
-        }
-        return prev;
-      });
-    }, []),
+      // Double-check filtering here as well since useSocket might not be filtering correctly
+      if (data.userId !== user?.id) {
+        setTypingUsers(prev => {
+          const chatTyping = prev[data.conversationId] || [];
+          if (!chatTyping.includes(data.username)) {
+            return {
+              ...prev,
+              [data.conversationId]: [...chatTyping, data.username]
+            };
+          }
+          return prev;
+        });
+      }
+    }, [user?.id]),
     onUserStoppedTyping: useCallback((data: { userId: string; username: string; conversationId: string }) => {
+      // Remove typing indicator
       setTypingUsers(prev => {
         const chatTyping = prev[data.conversationId] || [];
         return {
@@ -178,16 +184,40 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
 
   useEffect(() => {
     fetchChats();
+  }, []); // Only run once on mount
+
+  // Separate effect for setting up the interval
+  useEffect(() => {
+    // Only set up interval if we have a user (to avoid running before user is loaded)
+    if (!user?.id) {
+      return;
+    }
+    
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
     
     // Set up background fetching every 30 seconds
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       fetchChatsInBackground();
     }, 30000);
 
     return () => {
-      clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-  }, [fetchChats, fetchChatsInBackground]);
+  }, [user?.id]); // Only depend on user ID
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const handleChatCreated = useCallback((chatId: string) => {
     // Refresh the chat list to show the new chat
