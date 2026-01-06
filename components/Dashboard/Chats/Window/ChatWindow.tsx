@@ -85,7 +85,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     [userId: string]: string;
   }>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
-  const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
+  const [forceUpdate, setForceUpdate] = useState(0);
   const [showContactModal, setShowContactModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -93,10 +93,45 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [showFilePreview, setShowFilePreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onlineStatusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reset state when chatId changes
+  useEffect(() => {
+    if (chatId !== currentChatId) {
+      // Clear previous chat state
+      setMessages([]);
+      setConversation(null);
+      setUser(null);
+      setNewMessage("");
+      setIsTyping(false);
+      setUserLastSeen({});
+      setOnlineUsers(new Set());
+      setShowContactModal(false);
+      setUploadingFile(false);
+      setDragOver(false);
+      setSelectedFile(null);
+      setShowFilePreview(false);
+      setPreviewUrl("");
+      setViewingMessage(null);
+      setSending(false);
+      
+      // Clear timeouts
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      if (onlineStatusIntervalRef.current) {
+        clearInterval(onlineStatusIntervalRef.current);
+        onlineStatusIntervalRef.current = null;
+      }
+      
+      setCurrentChatId(chatId);
+    }
+  }, [chatId, currentChatId]);
 
   // Socket integration
   const {
@@ -271,7 +306,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   });
 
   useEffect(() => {
-    if (chatId) {
+    if (chatId && chatId === currentChatId) {
       // Load from cache first for instant display
       const cached = cacheStore.getCachedMessages(chatId);
       if (cached) {
@@ -290,18 +325,18 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     }
 
     return () => {
-      if (chatId) {
+      if (chatId && chatId === currentChatId) {
         leaveConversation(chatId);
       }
       if (onlineStatusIntervalRef.current) {
         clearInterval(onlineStatusIntervalRef.current);
       }
     };
-  }, [chatId]);
+  }, [chatId, currentChatId]);
 
   // Separate effect for online status checking that depends on conversation
   useEffect(() => {
-    if (conversation && chatId) {
+    if (conversation && chatId && chatId === currentChatId) {
       // Initial check
       checkOnlineStatus();
 
@@ -317,7 +352,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         clearInterval(onlineStatusIntervalRef.current);
       }
     };
-  }, [conversation, chatId]);
+  }, [conversation, chatId, currentChatId]);
 
   useEffect(() => {
     // Use setTimeout to ensure DOM has updated before scrolling
@@ -330,7 +365,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
   // Auto-scroll when typing indicators appear/disappear
   useEffect(() => {
-    if (chatId) {
+    if (chatId && chatId === currentChatId) {
       const typingUsers = getTypingUsersInConversation(chatId);
       if (typingUsers.length > 0) {
         // Small delay to ensure typing indicator is rendered
@@ -340,12 +375,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         return () => clearTimeout(timer);
       }
     }
-  }, [chatId, getTypingUsersInConversation]);
+  }, [chatId, currentChatId, getTypingUsersInConversation]);
 
   // Handle visibility change to mark messages as read when user returns to tab
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && chatId && currentUserId) {
+      if (!document.hidden && chatId && chatId === currentChatId && currentUserId) {
         // Mark any unread messages as read when user returns to tab
         const unreadMessages = messages.filter((msg: Message) => {
           if (!msg || msg.senderId === currentUserId) return false;
@@ -366,12 +401,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [messages, chatId, currentUserId, markMessageRead]);
+  }, [messages, chatId, currentChatId, currentUserId, markMessageRead]);
 
   // Handle window focus to mark messages as read
   useEffect(() => {
     const handleFocus = () => {
-      if (chatId && currentUserId) {
+      if (chatId && chatId === currentChatId && currentUserId) {
         // Mark any unread messages as read when chat gets focus
         const unreadMessages = messages.filter((msg: Message) => {
           if (!msg || msg.senderId === currentUserId) return false;
@@ -391,7 +426,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [messages, chatId, currentUserId, markMessageRead]);
+  }, [messages, chatId, currentChatId, currentUserId, markMessageRead]);
 
   // Periodic status check and update
   useEffect(() => {
@@ -434,7 +469,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
   // Periodic check to mark unread messages as read
   useEffect(() => {
-    if (!chatId || !currentUserId) return;
+    if (!chatId || !currentUserId || chatId !== currentChatId) return;
 
     const interval = setInterval(() => {
       const unreadMessages = messages.filter((msg: Message) => {
@@ -456,7 +491,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     }, 2000); // Check every 2 seconds
 
     return () => clearInterval(interval);
-  }, [messages, chatId, currentUserId, markMessageRead]);
+  }, [messages, chatId, currentChatId, currentUserId, markMessageRead]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -519,7 +554,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   };
 
   const fetchMessages = async () => {
-    if (!chatId) return;
+    if (!chatId || chatId !== currentChatId) return;
 
     // Only show loading if we don't have cached data
     const cached = cacheStore.getCachedMessages(chatId);
@@ -531,7 +566,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       const response = await fetch(`/api/chats/${chatId}/messages`);
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && chatId === currentChatId) {
         setMessages(data.messages);
         setConversation(data.conversation);
         
@@ -1332,7 +1367,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             );
           })}
           <div ref={messagesEndRef} />
-          {chatId && getTypingUsersInConversation(chatId).length > 0 && (
+          {chatId && chatId === currentChatId && getTypingUsersInConversation(chatId).length > 0 && (
             <div
               ref={typingIndicatorRef}
               className="mb-3 flex items-center gap-3"

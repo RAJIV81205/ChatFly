@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Search, Plus, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
 import NewChatModal from "./NewChatModal";
+import { useSocket } from "@/lib/hooks/useSocket";
+import { getTokenForSocket } from "@/lib/utils/auth";
 
 interface User {
   id: string;
@@ -48,18 +50,33 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<{[chatId: string]: string[]}>({});
+  const [isBackgroundFetching, setIsBackgroundFetching] = useState(false);
 
+  // Initialize socket connection
   useEffect(() => {
-    fetchChats();
+    const initSocket = async () => {
+      const authToken = await getTokenForSocket();
+      setToken(authToken);
+    };
+    initSocket();
   }, []);
 
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       const response = await fetch('/api/chats');
       const data = await response.json();
 
       if (data.success) {
-        setChats(data.chats);
+        // Sort chats by last message time (most recent first)
+        const sortedChats = data.chats.sort((a: Chat, b: Chat) => {
+          const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+          const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+        
+        setChats(sortedChats);
         setUser(data.user);
       } else {
         console.error('Failed to fetch chats:', data.error);
@@ -69,18 +86,126 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleChatCreated = (chatId: string) => {
+  // Socket integration for typing status only
+  const {
+    isConnected,
+    getTypingUsersInConversation,
+  } = useSocket({
+    token: token || undefined,
+    onUserTyping: useCallback((data: { userId: string; username: string; conversationId: string }) => {
+      setTypingUsers(prev => {
+        const chatTyping = prev[data.conversationId] || [];
+        if (!chatTyping.includes(data.username)) {
+          return {
+            ...prev,
+            [data.conversationId]: [...chatTyping, data.username]
+          };
+        }
+        return prev;
+      });
+    }, []),
+    onUserStoppedTyping: useCallback((data: { userId: string; username: string; conversationId: string }) => {
+      setTypingUsers(prev => {
+        const chatTyping = prev[data.conversationId] || [];
+        return {
+          ...prev,
+          [data.conversationId]: chatTyping.filter(username => username !== data.username)
+        };
+      });
+    }, []),
+  });
+
+  // Background fetch that updates chats smartly without full re-render
+  const fetchChatsInBackground = useCallback(async () => {
+    try {
+      setIsBackgroundFetching(true);
+      const response = await fetch('/api/chats');
+      const data = await response.json();
+
+      if (data.success) {
+        setChats(prevChats => {
+          const newChats = data.chats;
+          const updatedChats = [...prevChats];
+          
+          // Track which chats have been updated or added
+          const chatMap = new Map(prevChats.map(chat => [chat.id, chat]));
+          
+          newChats.forEach((newChat: Chat) => {
+            const existingChat = chatMap.get(newChat.id);
+            
+            if (!existingChat) {
+              // New chat - add it
+              updatedChats.push(newChat);
+            } else {
+              // Existing chat - check if last message changed
+              const existingIndex = updatedChats.findIndex(chat => chat.id === newChat.id);
+              if (existingIndex !== -1) {
+                const hasNewMessage = 
+                  !existingChat.lastMessage && newChat.lastMessage ||
+                  existingChat.lastMessage?.id !== newChat.lastMessage?.id ||
+                  existingChat.lastMessage?.createdAt !== newChat.lastMessage?.createdAt;
+                
+                if (hasNewMessage || existingChat.name !== newChat.name) {
+                  updatedChats[existingIndex] = newChat;
+                }
+              }
+            }
+          });
+          
+          // Sort chats by last message time (most recent first)
+          updatedChats.sort((a, b) => {
+            const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+            const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+            return bTime - aTime;
+          });
+          
+          return updatedChats;
+        });
+        
+        // Update user info if needed
+        if (data.user && (!user || user.id !== data.user.id)) {
+          setUser(data.user);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching chats in background:', error);
+    } finally {
+      setIsBackgroundFetching(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchChats();
+    
+    // Set up background fetching every 30 seconds
+    const interval = setInterval(() => {
+      fetchChatsInBackground();
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [fetchChats, fetchChatsInBackground]);
+
+  const handleChatCreated = useCallback((chatId: string) => {
     // Refresh the chat list to show the new chat
     fetchChats();
     // Select the new chat
     onChatSelect(chatId);
-  };
+  }, [fetchChats, onChatSelect]);
 
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Sort filtered chats by last message time (most recent first) - memoized for performance
+  const filteredChats = useMemo(() => {
+    return chats
+      .filter(chat => chat.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      .sort((a, b) => {
+        const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+        const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [chats, searchQuery]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -108,7 +233,10 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   if (loading) {
     return (
       <div className="w-80 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading chats...</p>
+        </div>
       </div>
     );
   }
@@ -141,6 +269,9 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">available</span>
+                {isBackgroundFetching && (
+                  <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse ml-1" title="Syncing..." />
+                )}
               </div>
             </div>
           </div>
@@ -222,7 +353,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                   )}
                 </div>
 
-                {/* Chat Info */}
+                  {/* Chat Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="font-medium text-zinc-900 dark:text-white truncate">
@@ -235,18 +366,28 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                     )}
                   </div>
                   
-                  {/* {chat.type === 'PRIVATE' && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      typing...
-                    </p>
-                  )} */}
                   {chat.type === 'GROUP' && (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       {chat.members.length} participants
                     </p>
                   )}
 
-                  {chat.lastMessage ? (
+                  {/* Typing indicator or last message */}
+                  {typingUsers[chat.id] && typingUsers[chat.id].length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
+                        <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                      </div>
+                      <p className="text-sm text-emerald-600 dark:text-emerald-400 italic">
+                        {chat.type === 'PRIVATE' 
+                          ? 'typing...' 
+                          : `${typingUsers[chat.id][0]} is typing...`
+                        }
+                      </p>
+                    </div>
+                  ) : chat.lastMessage ? (
                     <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
                       {chat.lastMessage.senderId === user?.id 
                         ? `You: ${truncateMessage(chat.lastMessage.content)}`
