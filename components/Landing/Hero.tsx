@@ -8,9 +8,11 @@ import {
   MoreVertical,
   CheckCheck,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Hero() {
   const heroRef = useRef<HTMLDivElement>(null);
+  const router = useRouter()
 
   useEffect(() => {
     if (!heroRef.current) return;
@@ -78,7 +80,9 @@ export default function Hero() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <button className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-6 py-3 text-sm font-medium flex items-center gap-2">
+            <button
+            onClick={()=>router.push("/auth/login")} 
+            className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-6 py-3 text-sm font-medium flex items-center gap-2 cursor-pointer">
               <MessageCircle size={16} />
               Start Chatting
             </button>

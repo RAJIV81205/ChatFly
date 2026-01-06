@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Sun , Moon } from "lucide-react";
+import { useRouter } from "next/navigation";
+
 
 export default function Navbar() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -48,7 +51,9 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
          
 
-          <button title="Login" className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer">
+          <button 
+          onClick={()=>router.push("/auth/login")}
+          title="Login" className="rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer">
             Login →
           </button>
 
