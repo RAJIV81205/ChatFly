@@ -8,6 +8,8 @@ import {
   MoreHorizontal,
   Paperclip,
   Smile,
+  Download,
+  Eye,
 } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/lib/hooks/useSocket";
@@ -140,12 +142,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       }
     },
     onFileMessageUploaded: async (data) => {
-  
       if (data.senderId === currentUserId) {
         return;
       }
       try {
-        
         const response = await fetch(`/api/messages/${data.messageId}`);
         const result = await response.json();
 
@@ -827,7 +827,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
   const handleViewMessage = (message: Message) => {
     if (!message.fileUrl) return;
-    
+
     setViewingMessage(message);
     setPreviewUrl(getFileUrl(message.fileUrl));
     setShowFilePreview(true);
@@ -835,10 +835,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
   const handleDownloadMessage = (message: Message) => {
     if (!message.fileUrl) return;
-    
-    const link = document.createElement('a');
+
+    const link = document.createElement("a");
     link.href = getFileUrl(message.fileUrl);
-    link.download = message.fileName || 'download';
+    link.download = message.fileName || "download";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -920,13 +920,17 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                 }
                 onClick={() => handleViewMessage(message)}
               />
-              <div 
+              <div
                 className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors cursor-pointer rounded-lg"
                 onClick={() => handleViewMessage(message)}
               >
                 <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-800 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
+                  <svg
+                    className="w-6 h-6 text-gray-800 ml-1"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M8 5v14l11-7z" />
                   </svg>
                 </div>
               </div>
@@ -939,10 +943,23 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
       case "FILE":
         return (
-          <div className="flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-700 rounded-lg max-w-xs">
-            <div className="w-10 h-10 bg-zinc-200 dark:bg-zinc-600 rounded-lg flex items-center justify-center">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => handleViewMessage(message)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                handleViewMessage(message);
+              }
+            }}
+            className="flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-700 rounded-lg max-w-xs cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600 transition"
+          >
+            {/* Icon */}
+            <div className="w-10 h-10 bg-zinc-200 dark:bg-zinc-600 rounded-lg flex items-center justify-center shrink-0">
               <Paperclip className="w-5 h-5 text-zinc-600 dark:text-zinc-300" />
             </div>
+
+            {/* File Info */}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
                 {message.fileName || "File"}
@@ -953,18 +970,31 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                   : "Unknown size"}
               </p>
             </div>
-            <div className="flex gap-2">
+
+            {/* Actions */}
+            <div className="flex gap-3 shrink-0">
               <button
-                onClick={() => handleViewMessage(message)}
-                className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewMessage(message);
+                }}
+                className="text-gray-600 dark:text-gray-200 hover:text-blue-500 transition"
+                title="View"
               >
-                View
+                <Eye className="h-5 w-5" />
               </button>
+
               <button
-                onClick={() => handleDownloadMessage(message)}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownloadMessage(message);
+                }}
+                className="text-gray-600 dark:text-gray-200 hover:text-emerald-500 transition"
+                title="Download"
               >
-                Download
+                <Download className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -1319,11 +1349,15 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           onConfirm={selectedFile ? handleFileConfirm : undefined}
           onCancel={handleFileCancel}
           uploading={uploadingFile}
-          mode={selectedFile ? 'send' : 'view'}
+          mode={selectedFile ? "send" : "view"}
           fileName={viewingMessage?.fileName}
           fileSize={viewingMessage?.fileSize}
           fileType={viewingMessage?.mimeType}
-          onDownload={viewingMessage ? () => handleDownloadMessage(viewingMessage) : undefined}
+          onDownload={
+            viewingMessage
+              ? () => handleDownloadMessage(viewingMessage)
+              : undefined
+          }
         />
       )}
     </>
