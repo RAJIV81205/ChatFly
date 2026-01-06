@@ -464,8 +464,12 @@ app.get('/api/users/online-status', (req: any, res: any) => {
 
 const PORT = process.env.WEBSOCKET_PORT || 3001;
 
-app.get("/", (req, res) => {
-  res.send("Hello World!");
+server.listen(PORT, () => {
+  // console.log(`Real-time messaging server running on port ${PORT}`);
+});
+
+app.get('/', (req: any, res: any) => {
+  res.send('Real-time messaging server is running!');
 });
 
 // Graceful shutdown
