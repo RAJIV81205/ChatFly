@@ -398,6 +398,7 @@ export default function Signup() {
       // window.location.href = "/dashboard";
       // or use Next.js router
       alert("Account created successfully! You can now log in.");
+      window.location.href = "/auth/login";
       
     } catch (error) {
       console.error("OTP verification error:", error);
