@@ -8,5 +8,5 @@
   "env": {
     "PRISMA_GENERATE_DATAPROXY": "true"
   },
-  "region":"bom1"
+  "regions":["bom1"]
 }
