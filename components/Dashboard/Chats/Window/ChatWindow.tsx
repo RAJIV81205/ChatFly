@@ -89,6 +89,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showFilePreview, setShowFilePreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -817,10 +818,30 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const handleFileCancel = () => {
     setShowFilePreview(false);
     setSelectedFile(null);
+    setViewingMessage(null);
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl("");
     }
+  };
+
+  const handleViewMessage = (message: Message) => {
+    if (!message.fileUrl) return;
+    
+    setViewingMessage(message);
+    setPreviewUrl(getFileUrl(message.fileUrl));
+    setShowFilePreview(true);
+  };
+
+  const handleDownloadMessage = (message: Message) => {
+    if (!message.fileUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = getFileUrl(message.fileUrl);
+    link.download = message.fileName || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -851,25 +872,25 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const renderMessageContent = (message: Message) => {
-    // For file URLs, check if they're already decrypted or need to be served through our API
-    const getFileUrl = (fileUrl?: string) => {
-      if (!fileUrl) return "";
+  // For file URLs, check if they're already decrypted or need to be served through our API
+  const getFileUrl = (fileUrl?: string) => {
+    if (!fileUrl) return "";
 
-      // If it's already a full URL (decrypted), use it directly
-      if (fileUrl.startsWith("http")) {
-        return fileUrl;
-      }
-
-      // If it's encrypted (contains :), serve through our API
-      if (fileUrl.includes(":")) {
-        return `/api/files/${encodeURIComponent(fileUrl)}`;
-      }
-
-      // Fallback
+    // If it's already a full URL (decrypted), use it directly
+    if (fileUrl.startsWith("http")) {
       return fileUrl;
-    };
+    }
 
+    // If it's encrypted (contains :), serve through our API
+    if (fileUrl.includes(":")) {
+      return `/api/files/${encodeURIComponent(fileUrl)}`;
+    }
+
+    // Fallback
+    return fileUrl;
+  };
+
+  const renderMessageContent = (message: Message) => {
     switch (message.type) {
       case "IMAGE":
         return (
@@ -877,8 +898,8 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             <img
               src={getFileUrl(message.fileUrl)}
               alt={message.fileName || "Image"}
-              className="rounded-lg max-w-full h-auto cursor-pointer"
-              onClick={() => window.open(getFileUrl(message.fileUrl), "_blank")}
+              className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => handleViewMessage(message)}
             />
             {message.content && message.content !== message.fileName && (
               <p className="text-sm mt-2">{message.content}</p>
@@ -889,15 +910,27 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       case "VIDEO":
         return (
           <div className="max-w-xs">
-            <video
-              src={getFileUrl(message.fileUrl)}
-              controls
-              className="rounded-lg max-w-full h-auto"
-              preload="metadata"
-              poster={
-                message.thumbnail ? getFileUrl(message.thumbnail) : undefined
-              }
-            />
+            <div className="relative">
+              <video
+                src={getFileUrl(message.fileUrl)}
+                className="rounded-lg max-w-full h-auto cursor-pointer"
+                preload="metadata"
+                poster={
+                  message.thumbnail ? getFileUrl(message.thumbnail) : undefined
+                }
+                onClick={() => handleViewMessage(message)}
+              />
+              <div 
+                className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors cursor-pointer rounded-lg"
+                onClick={() => handleViewMessage(message)}
+              >
+                <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-800 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
             {message.content && message.content !== message.fileName && (
               <p className="text-sm mt-2">{message.content}</p>
             )}
@@ -920,12 +953,20 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                   : "Unknown size"}
               </p>
             </div>
-            <button
-              onClick={() => window.open(getFileUrl(message.fileUrl), "_blank")}
-              className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
-            >
-              Open
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleViewMessage(message)}
+                className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+              >
+                View
+              </button>
+              <button
+                onClick={() => handleDownloadMessage(message)}
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                Download
+              </button>
+            </div>
           </div>
         );
 
@@ -1271,32 +1312,19 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       )}
 
       {/* File Preview Modal */}
-      {showFilePreview && selectedFile && (
-        <>
-          {console.log("Rendering FilePreview modal", {
-            showFilePreview,
-            selectedFile: selectedFile?.name,
-          })}
-          <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
-            <div className="bg-white p-8 rounded-lg">
-              <h2>File Preview Test</h2>
-              <p>File: {selectedFile.name}</p>
-              <button
-                onClick={handleFileCancel}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-          <FilePreview
-            file={selectedFile}
-            previewUrl={previewUrl}
-            onConfirm={handleFileConfirm}
-            onCancel={handleFileCancel}
-            uploading={uploadingFile}
-          />
-        </>
+      {showFilePreview && (selectedFile || viewingMessage) && (
+        <FilePreview
+          file={selectedFile || undefined}
+          previewUrl={previewUrl}
+          onConfirm={selectedFile ? handleFileConfirm : undefined}
+          onCancel={handleFileCancel}
+          uploading={uploadingFile}
+          mode={selectedFile ? 'send' : 'view'}
+          fileName={viewingMessage?.fileName}
+          fileSize={viewingMessage?.fileSize}
+          fileType={viewingMessage?.mimeType}
+          onDownload={viewingMessage ? () => handleDownloadMessage(viewingMessage) : undefined}
+        />
       )}
     </>
   );

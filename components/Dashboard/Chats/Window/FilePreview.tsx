@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import Cropper from "react-easy-crop";
-import { X, Send, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
+import { X, Send, RotateCw, ZoomIn, ZoomOut, Download } from "lucide-react";
 import { Document, Page } from "react-pdf";
 import { pdfjs } from "react-pdf";
 
@@ -12,11 +12,17 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 interface FilePreviewProps {
-  file: File;
+  file?: File;
   previewUrl: string;
-  onConfirm: (processedFile?: Blob) => void;
+  onConfirm?: (processedFile?: Blob) => void;
   onCancel: () => void;
-  uploading: boolean;
+  uploading?: boolean;
+  // New props for view mode
+  mode?: 'send' | 'view';
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  onDownload?: () => void;
 }
 
 interface Area {
@@ -31,15 +37,25 @@ const FilePreview = ({
   previewUrl,
   onConfirm,
   onCancel,
-  uploading,
+  uploading = false,
+  mode = 'send',
+  fileName,
+  fileSize,
+  fileType,
+  onDownload,
 }: FilePreviewProps) => {
-  // console.log('FilePreview rendered with:', { fileName: file.name, previewUrl, uploading });
+  // console.log('FilePreview rendered with:', { fileName: file?.name || fileName, previewUrl, uploading, mode });
 
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
-  const isPdf = file.type === "application/pdf";
+  // Determine file type from file object or passed fileType
+  const actualFileType = file?.type || fileType || '';
+  const actualFileName = file?.name || fileName || 'Unknown file';
+  const actualFileSize = file?.size || fileSize;
 
-  // console.log('File types:', { isImage, isVideo, isPdf, fileType: file.type });
+  const isImage = actualFileType.startsWith("image/");
+  const isVideo = actualFileType.startsWith("video/");
+  const isPdf = actualFileType === "application/pdf";
+
+  // console.log('File types:', { isImage, isVideo, isPdf, fileType: actualFileType });
 
   /* ---------- Crop state ---------- */
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -92,17 +108,32 @@ const FilePreview = ({
     ctx.restore();
 
     return new Promise((resolve) =>
-      canvas.toBlob((blob) => resolve(blob!), file.type, 0.95)
+      canvas.toBlob((blob) => resolve(blob!), actualFileType, 0.95)
     );
   };
 
   /* ---------- Confirm ---------- */
   const handleConfirm = async () => {
-    if (isImage && croppedAreaPixels) {
+    if (mode === 'view') {
+      // In view mode, just close the preview
+      onCancel();
+      return;
+    }
+
+    if (isImage && croppedAreaPixels && onConfirm) {
       const processed = await processImage();
       onConfirm(processed);
-    } else {
+    } else if (onConfirm) {
       onConfirm();
+    }
+  };
+
+  const handleDownload = () => {
+    if (onDownload) {
+      onDownload();
+    } else {
+      // Fallback: open in new tab
+      window.open(previewUrl, '_blank');
     }
   };
 
@@ -117,10 +148,10 @@ const FilePreview = ({
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <div>
             <h3 className="font-semibold text-zinc-900 dark:text-white">
-              File Preview
+              {mode === 'send' ? 'File Preview' : 'File Viewer'}
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {file.name}
+              {actualFileName}
             </p>
           </div>
           <button
@@ -131,8 +162,8 @@ const FilePreview = ({
           </button>
         </div>
 
-        {/* Image editor tools */}
-        {isImage && (
+        {/* Image editor tools - Only show in send mode */}
+        {isImage && mode === 'send' && (
           <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50">
             <button
               onClick={() => setRotation((r) => (r + 90) % 360)}
@@ -162,24 +193,34 @@ const FilePreview = ({
         <div className="relative flex-1 bg-zinc-100 dark:bg-zinc-800 min-h-0">
           {isImage && (
             <div className="w-full h-full">
-              <Cropper
-                image={previewUrl}
-                crop={crop}
-                zoom={zoom}
-                rotation={rotation}
-                aspect={undefined}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onRotationChange={setRotation}
-                onCropComplete={onCropComplete}
-                style={{
-                  containerStyle: {
-                    width: "100%",
-                    height: "100%",
-                    position: "relative",
-                  },
-                }}
-              />
+              {mode === 'send' ? (
+                <Cropper
+                  image={previewUrl}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={undefined}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onRotationChange={setRotation}
+                  onCropComplete={onCropComplete}
+                  style={{
+                    containerStyle: {
+                      width: "100%",
+                      height: "100%",
+                      position: "relative",
+                    },
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center p-4">
+                  <img
+                    src={previewUrl}
+                    alt={actualFileName}
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -224,20 +265,9 @@ const FilePreview = ({
           {!isImage && !isVideo && !isPdf && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-900 dark:text-white">
               <div className="text-6xl mb-4">📄</div>
-              <p className="text-lg font-medium">{file.name}</p>
+              <p className="text-lg font-medium">{actualFileName}</p>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                {(file.size / (1024 * 1024)).toFixed(2)} MB
-              </p>
-            </div>
-          )}
-
-          {!isImage && !isVideo && !isPdf && (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-900 dark:text-white">
-              <div className="text-6xl mb-4">📎</div>
-              <p className="text-lg font-medium">{file.name}</p>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                {file.type || "Unknown type"} •{" "}
-                {(file.size / (1024 * 1024)).toFixed(2)} MB
+                {actualFileSize ? (actualFileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown size'}
               </p>
             </div>
           )}
@@ -249,25 +279,36 @@ const FilePreview = ({
             onClick={onCancel}
             className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 px-4 py-2 rounded-lg transition-colors"
           >
-            Cancel
+            {mode === 'view' ? 'Close' : 'Cancel'}
           </button>
-          <button
-            onClick={handleConfirm}
-            disabled={uploading}
-            className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
-          >
-            {uploading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Sending…
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Send
-              </>
-            )}
-          </button>
+          
+          {mode === 'send' ? (
+            <button
+              onClick={handleConfirm}
+              disabled={uploading}
+              className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              {uploading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Send
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={handleDownload}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+          )}
         </div>
       </div>
     </div>
