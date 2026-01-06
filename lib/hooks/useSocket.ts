@@ -5,10 +5,9 @@ import { io, Socket } from 'socket.io-client';
 
 interface UseSocketOptions {
   token?: string;
-  currentUserId?: string;
   onNewMessage?: (message: any) => void;
-  onUserTyping?: (data: { userId: string; username: string; user: any; conversationId: string }) => void;
-  onUserStoppedTyping?: (data: { userId: string; username: string; conversationId: string }) => void;
+  onUserTyping?: (data: { userId: string; user: any; conversationId: string }) => void;
+  onUserStoppedTyping?: (data: { userId: string; conversationId: string }) => void;
   onUserOnline?: (data: { userId: string; user: any }) => void;
   onUserOffline?: (data: { userId: string; lastSeen: Date }) => void;
   onMessageRead?: (data: { messageId: string; userId: string; user: any; readAt: Date }) => void;
@@ -23,8 +22,11 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
   useEffect(() => {
     if (!options.token) {
+      // // console.log('No token provided to useSocket');
       return;
     }
+
+    // // console.log('Initializing socket connection with token:', options.token?.substring(0, 20) + '...');
 
     // Initialize socket connection
     const socket = io(process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001', {
@@ -38,10 +40,12 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Connection events
     socket.on('connect', () => {
+      // // console.log('Connected to WebSocket server');
       setIsConnected(true);
     });
 
     socket.on('disconnect', () => {
+      // // console.log('Disconnected from WebSocket server');
       setIsConnected(false);
     });
 
@@ -57,12 +61,8 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Typing events
     socket.on('user_typing', (data) => {
-      // Only store typing state if it's not the current user
-      if (data.userId !== options.currentUserId) {
-        setTypingUsers(prev => new Map(prev.set(data.userId, data.conversationId)));
-        // Only call the callback for other users
-        options.onUserTyping?.(data);
-      }
+      setTypingUsers(prev => new Map(prev.set(data.userId, data.conversationId)));
+      options.onUserTyping?.(data);
     });
 
     socket.on('user_stopped_typing', (data) => {
@@ -71,7 +71,6 @@ export const useSocket = (options: UseSocketOptions = {}) => {
         newMap.delete(data.userId);
         return newMap;
       });
-      // Always call stopped typing callback for cleanup
       options.onUserStoppedTyping?.(data);
     });
 
@@ -92,6 +91,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Read receipt events
     socket.on('message_read', (data) => {
+      // // console.log('Read receipt received:', data);
       options.onMessageRead?.(data);
     });
 
@@ -107,7 +107,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     return () => {
       socket.disconnect();
     };
-  }, [options.token, options.currentUserId]); // Add currentUserId to dependencies
+  }, [options.token]);
 
   // Socket methods
   const sendMessage = (conversationId: string, content: string, files: any[] = []) => {
@@ -162,7 +162,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   const getTypingUsersInConversation = (conversationId: string) => {
     const typing = [];
     for (const [userId, convId] of typingUsers.entries()) {
-      if (convId === conversationId && userId !== options.currentUserId) {
+      if (convId === conversationId) {
         typing.push(userId);
       }
     }

@@ -51,12 +51,10 @@ const ChatInterface = () => {
 
   return (
     <div className="flex h-full">
-      {currentUser && token && (
-        <ChatList
-          onChatSelect={handleChatSelect}
-          selectedChatId={selectedChatId}
-        />
-      )}
+      <ChatList
+        onChatSelect={handleChatSelect}
+        selectedChatId={selectedChatId}
+      />
 
       {currentUser && token && (
         <ChatWindow
