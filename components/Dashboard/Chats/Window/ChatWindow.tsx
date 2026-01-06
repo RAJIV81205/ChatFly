@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useSocket } from "@/lib/hooks/useSocket";
+import { cacheStore } from "@/lib/hooks/cacheStore";
 import { MessageStatus } from "./MessageStatus";
 import MessageInput from "./MessageInput";
 import Contact from "./Contact";
@@ -132,7 +133,14 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               msg.content === safeMessage.content
             )
         );
-        return [...filteredMessages, safeMessage];
+        const updatedMessages = [...filteredMessages, safeMessage];
+        
+        // Update cache with new message
+        if (chatId) {
+          cacheStore.addMessageToCache(chatId, safeMessage);
+        }
+        
+        return updatedMessages;
       });
 
       // Mark message as read immediately if it's not from current user and chat is open
@@ -150,7 +158,16 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         const result = await response.json();
 
         if (result.success) {
-          setMessages((prev) => [...prev, result.message]);
+          setMessages((prev) => {
+            const updatedMessages = [...prev, result.message];
+            
+            // Update cache with new message
+            if (chatId) {
+              cacheStore.addMessageToCache(chatId, result.message);
+            }
+            
+            return updatedMessages;
+          });
 
           // Mark as read if it's not from current user and chat is open
           if (result.message.senderId !== currentUserId && chatId) {
@@ -230,6 +247,14 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               status: newStatus,
             };
 
+            // Update cache with message changes
+            if (chatId) {
+              cacheStore.updateMessageInCache(chatId, msg.id, {
+                readReceipts: updatedReadReceipts,
+                status: newStatus,
+              });
+            }
+
             // // console.log('🔵 Updated message:', updatedMessage);
 
             // Force a re-render to ensure UI updates
@@ -247,6 +272,19 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
   useEffect(() => {
     if (chatId) {
+      // Load from cache first for instant display
+      const cached = cacheStore.getCachedMessages(chatId);
+      if (cached) {
+        setMessages(cached.messages);
+        setConversation(cached.conversation);
+        
+        // Scroll to bottom immediately with cached messages
+        setTimeout(() => {
+          scrollToBottom();
+        }, 0);
+      }
+      
+      // Then fetch fresh data in background
       fetchMessages();
       joinConversation(chatId);
     }
@@ -483,7 +521,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const fetchMessages = async () => {
     if (!chatId) return;
 
-    setLoading(true);
+    // Only show loading if we don't have cached data
+    const cached = cacheStore.getCachedMessages(chatId);
+    if (!cached) {
+      setLoading(true);
+    }
+    
     try {
       const response = await fetch(`/api/chats/${chatId}/messages`);
       const data = await response.json();
@@ -491,6 +534,9 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       if (data.success) {
         setMessages(data.messages);
         setConversation(data.conversation);
+        
+        // Cache the fresh data
+        cacheStore.cacheMessages(chatId, data.messages, data.conversation);
 
         // Fetch last seen data for private chats
         if (data.conversation?.type === "PRIVATE") {
@@ -515,10 +561,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           });
         }
 
-        // Scroll to bottom after messages are loaded
-        setTimeout(() => {
-          scrollToBottom();
-        }, 100);
+        // Scroll to bottom after messages are loaded (only if no cached data was shown)
+        if (!cached) {
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
+        }
       } else {
         console.error("Failed to fetch messages:", data.error);
       }
@@ -800,7 +848,14 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         }
 
         // Add the message to our own UI immediately
-        setMessages((prev) => [...prev, data.message]);
+        setMessages((prev) => {
+          const updatedMessages = [...prev, data.message];
+          
+          // Update cache with new message
+          cacheStore.addMessageToCache(chatId, data.message);
+          
+          return updatedMessages;
+        });
       } else {
         alert("Failed to upload file: " + data.error);
       }
