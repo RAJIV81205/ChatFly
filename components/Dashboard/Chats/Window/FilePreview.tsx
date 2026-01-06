@@ -11,6 +11,68 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
+const LazyPdfPage = ({
+  pageNumber,
+  width,
+  eager = false,
+}: {
+  pageNumber: number;
+  width: number;
+  eager?: boolean;
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(eager);
+
+  useEffect(() => {
+    if (eager || !ref.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "800px",
+      }
+    );
+
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [eager]);
+
+  // A4 / most PDFs ≈ 1 : 1.414
+  const estimatedHeight = width * 1.414;
+
+  return (
+    <div
+      ref={ref}
+      className="w-full flex justify-center"
+      style={{ minHeight: estimatedHeight }}
+    >
+      {visible ? (
+        <Page
+          pageNumber={pageNumber}
+          width={width}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+          devicePixelRatio={1.25}
+          className="shadow-xl bg-white"
+        />
+      ) : (
+        <div
+          className="bg-white rounded shadow-inner"
+          style={{
+            width,
+            height: estimatedHeight,
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 interface FilePreviewProps {
   file?: File;
   previewUrl: string;
@@ -18,7 +80,7 @@ interface FilePreviewProps {
   onCancel: () => void;
   uploading?: boolean;
   // New props for view mode
-  mode?: 'send' | 'view';
+  mode?: "send" | "view";
   fileName?: string;
   fileSize?: number;
   fileType?: string;
@@ -38,7 +100,7 @@ const FilePreview = ({
   onConfirm,
   onCancel,
   uploading = false,
-  mode = 'send',
+  mode = "send",
   fileName,
   fileSize,
   fileType,
@@ -47,8 +109,8 @@ const FilePreview = ({
   // console.log('FilePreview rendered with:', { fileName: file?.name || fileName, previewUrl, uploading, mode });
 
   // Determine file type from file object or passed fileType
-  const actualFileType = file?.type || fileType || '';
-  const actualFileName = file?.name || fileName || 'Unknown file';
+  const actualFileType = file?.type || fileType || "";
+  const actualFileName = file?.name || fileName || "Unknown file";
   const actualFileSize = file?.size || fileSize;
 
   const isImage = actualFileType.startsWith("image/");
@@ -114,7 +176,7 @@ const FilePreview = ({
 
   /* ---------- Confirm ---------- */
   const handleConfirm = async () => {
-    if (mode === 'view') {
+    if (mode === "view") {
       // In view mode, just close the preview
       onCancel();
       return;
@@ -133,7 +195,7 @@ const FilePreview = ({
       onDownload();
     } else {
       // Fallback: open in new tab
-      window.open(previewUrl, '_blank');
+      window.open(previewUrl, "_blank");
     }
   };
 
@@ -148,7 +210,7 @@ const FilePreview = ({
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <div>
             <h3 className="font-semibold text-zinc-900 dark:text-white">
-              {mode === 'send' ? 'File Preview' : 'File Viewer'}
+              {mode === "send" ? "File Preview" : "File Viewer"}
             </h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {actualFileName}
@@ -163,7 +225,7 @@ const FilePreview = ({
         </div>
 
         {/* Image editor tools - Only show in send mode */}
-        {isImage && mode === 'send' && (
+        {isImage && mode === "send" && (
           <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50">
             <button
               onClick={() => setRotation((r) => (r + 90) % 360)}
@@ -193,7 +255,7 @@ const FilePreview = ({
         <div className="relative flex-1 bg-zinc-100 dark:bg-zinc-800 min-h-0">
           {isImage && (
             <div className="w-full h-full">
-              {mode === 'send' ? (
+              {mode === "send" ? (
                 <Cropper
                   image={previewUrl}
                   crop={crop}
@@ -248,14 +310,13 @@ const FilePreview = ({
                 className="flex flex-col gap-6"
               >
                 {numPages &&
+                  pdfWidth &&
                   Array.from({ length: numPages }, (_, index) => (
-                    <Page
+                    <LazyPdfPage
                       key={`page_${index + 1}`}
                       pageNumber={index + 1}
-                      width={pdfWidth ?? undefined}
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                      className="shadow-xl bg-white"
+                      width={pdfWidth}
+                      eager={index < 2} // 🔥 first 2 pages instantly
                     />
                   ))}
               </Document>
@@ -267,7 +328,9 @@ const FilePreview = ({
               <div className="text-6xl mb-4">📄</div>
               <p className="text-lg font-medium">{actualFileName}</p>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                {actualFileSize ? (actualFileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown size'}
+                {actualFileSize
+                  ? (actualFileSize / (1024 * 1024)).toFixed(2) + " MB"
+                  : "Unknown size"}
               </p>
             </div>
           )}
@@ -279,10 +342,10 @@ const FilePreview = ({
             onClick={onCancel}
             className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 px-4 py-2 rounded-lg transition-colors"
           >
-            {mode === 'view' ? 'Close' : 'Cancel'}
+            {mode === "view" ? "Close" : "Cancel"}
           </button>
-          
-          {mode === 'send' ? (
+
+          {mode === "send" ? (
             <button
               onClick={handleConfirm}
               disabled={uploading}
