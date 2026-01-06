@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { X, Send, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
+import { Document, Page } from "react-pdf";
+import { pdfjs } from "react-pdf";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 interface FilePreviewProps {
   file: File;
@@ -27,7 +34,7 @@ const FilePreview = ({
   uploading,
 }: FilePreviewProps) => {
   // console.log('FilePreview rendered with:', { fileName: file.name, previewUrl, uploading });
-  
+
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
   const isPdf = file.type === "application/pdf";
@@ -38,15 +45,27 @@ const FilePreview = ({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] =
-    useState<Area | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
-  const onCropComplete = useCallback(
-    (_: Area, croppedPixels: Area) => {
-      setCroppedAreaPixels(croppedPixels);
-    },
-    []
-  );
+  const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const [pdfWidth, setPdfWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!pdfContainerRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      setPdfWidth(pdfContainerRef.current!.clientWidth - 32);
+    });
+
+    observer.observe(pdfContainerRef.current);
+
+    return () => observer.disconnect();
+  }, []);
 
   /* ---------- Image processing ---------- */
   const processImage = async (): Promise<Blob> => {
@@ -73,11 +92,7 @@ const FilePreview = ({
     ctx.restore();
 
     return new Promise((resolve) =>
-      canvas.toBlob(
-        (blob) => resolve(blob!),
-        file.type,
-        0.95
-      )
+      canvas.toBlob((blob) => resolve(blob!), file.type, 0.95)
     );
   };
 
@@ -93,15 +108,22 @@ const FilePreview = ({
 
   /* ---------- UI ---------- */
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      style={{ zIndex: 9999 }}
+    >
       <div className="bg-white dark:bg-zinc-900 rounded-xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <div>
-            <h3 className="font-semibold text-zinc-900 dark:text-white">File Preview</h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">{file.name}</p>
+            <h3 className="font-semibold text-zinc-900 dark:text-white">
+              File Preview
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {file.name}
+            </p>
           </div>
-          <button 
+          <button
             onClick={onCancel}
             className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
           >
@@ -112,19 +134,19 @@ const FilePreview = ({
         {/* Image editor tools */}
         {isImage && (
           <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50">
-            <button 
+            <button
               onClick={() => setRotation((r) => (r + 90) % 360)}
               className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
             >
               <RotateCw className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
             </button>
-            <button 
+            <button
               onClick={() => setZoom((z) => Math.min(z + 0.2, 3))}
               className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
             >
               <ZoomIn className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
             </button>
-            <button 
+            <button
               onClick={() => setZoom((z) => Math.max(z - 0.2, 1))}
               className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
             >
@@ -152,10 +174,10 @@ const FilePreview = ({
                 onCropComplete={onCropComplete}
                 style={{
                   containerStyle: {
-                    width: '100%',
-                    height: '100%',
-                    position: 'relative'
-                  }
+                    width: "100%",
+                    height: "100%",
+                    position: "relative",
+                  },
                 }}
               />
             </div>
@@ -173,6 +195,33 @@ const FilePreview = ({
           )}
 
           {isPdf && (
+            <div
+              ref={pdfContainerRef}
+              className="h-full w-full overflow-y-auto flex justify-center bg-zinc-200 dark:bg-zinc-800 p-4"
+            >
+              <Document
+                file={previewUrl}
+                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                loading={<p className="text-zinc-600">Loading PDF…</p>}
+                error={<p className="text-red-500">Failed to load PDF</p>}
+                className="flex flex-col gap-6"
+              >
+                {numPages &&
+                  Array.from({ length: numPages }, (_, index) => (
+                    <Page
+                      key={`page_${index + 1}`}
+                      pageNumber={index + 1}
+                      width={pdfWidth ?? undefined}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                      className="shadow-xl bg-white"
+                    />
+                  ))}
+              </Document>
+            </div>
+          )}
+
+          {!isImage && !isVideo && !isPdf && (
             <div className="h-full flex flex-col items-center justify-center text-zinc-900 dark:text-white">
               <div className="text-6xl mb-4">📄</div>
               <p className="text-lg font-medium">{file.name}</p>
@@ -187,7 +236,8 @@ const FilePreview = ({
               <div className="text-6xl mb-4">📎</div>
               <p className="text-lg font-medium">{file.name}</p>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-                {file.type || 'Unknown type'} • {(file.size / (1024 * 1024)).toFixed(2)} MB
+                {file.type || "Unknown type"} •{" "}
+                {(file.size / (1024 * 1024)).toFixed(2)} MB
               </p>
             </div>
           )}
@@ -195,8 +245,8 @@ const FilePreview = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-          <button 
-            onClick={onCancel} 
+          <button
+            onClick={onCancel}
             className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 px-4 py-2 rounded-lg transition-colors"
           >
             Cancel
