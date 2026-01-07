@@ -5,7 +5,7 @@ import prisma from '@/lib/db/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -27,7 +27,7 @@ export async function POST(
       );
     }
 
-    const { id: chatId } = params;
+    const { id: chatId } = await params;
 
     // Verify user is a member of this conversation
     const membership = await prisma.conversationMember.findFirst({
