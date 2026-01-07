@@ -5,6 +5,8 @@ import { Search, Plus, MoreHorizontal, MessageCircleOff } from "lucide-react";
 import Image from "next/image";
 import NewChatModal from "./NewChatModal";
 import { cacheStore } from "@/lib/hooks/cacheStore";
+import { useSocket } from "@/lib/hooks/useSocket";
+import { getTokenForSocket } from "@/lib/utils/auth";
 
 interface User {
   id: string;
@@ -49,8 +51,25 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [socketToken, setSocketToken] = useState<string | null>(null);
 
+  const { onlineUsers } = useSocket({
+    token: socketToken || undefined,
+  });
+
+  // Load cache + socket token
   useEffect(() => {
+    const initializeSocket = async () => {
+      try {
+        const token = await getTokenForSocket();
+        setSocketToken(token);
+      } catch (error) {
+        console.error("Failed to get socket token:", error);
+      }
+    };
+
+    initializeSocket();
+
     let hasCache = false;
 
     try {
@@ -62,10 +81,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
       }
     } catch {}
 
-    // If no cache, show loader until server returns
     setLoading(!hasCache);
-
-    // Sync always
     fetchChats();
   }, []);
 
@@ -95,37 +111,33 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
         return bTime - aTime;
       });
 
-      // Update UI instantly
       setChats(sortedChats);
       setUser(data.user);
 
-      // Cache it
+      // Cache updated chat list
       cacheStore.cacheChatList(sortedChats, data.user);
     } catch (error) {
       console.error("fetchChats failed:", error);
     } finally {
-      setLoading(false); // ALWAYS hide loader
+      setLoading(false);
     }
   };
 
   const handleChatCreated = (chatId: string) => {
-    // Refresh the chat list to show the new chat
     fetchChats();
-    // Select the new chat
     onChatSelect(chatId);
   };
 
+  // Search filter
   const filteredChats = chats.filter((chat) => {
     if (!searchQuery.trim()) return true;
 
     const q = searchQuery.toLowerCase();
 
-    // 1. Group chats → use chat.name
     if (chat.type === "GROUP") {
       if (chat.name.toLowerCase().includes(q)) return true;
     }
 
-    // 2. Private chats → find the OTHER user
     if (chat.type === "PRIVATE" && user) {
       const otherMember = chat.members.find((m) => m.id !== user.id);
       if (otherMember) {
@@ -138,7 +150,6 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
       }
     }
 
-    // 3. Search inside last message
     if (chat.lastMessage?.content?.toLowerCase().includes(q)) {
       return true;
     }
@@ -165,11 +176,8 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     }
   };
 
-  const truncateMessage = (content: string, maxLength: number = 40) => {
-    return content.length > maxLength
-      ? content.substring(0, maxLength) + "..."
-      : content;
-  };
+  const truncateMessage = (content: string, maxLength = 40) =>
+    content.length > maxLength ? content.substring(0, maxLength) + "..." : content;
 
   if (loading) {
     return (
@@ -200,24 +208,21 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                 </span>
               </div>
             )}
+
             <div>
-              <h2 className="font-semibold text-zinc-900 dark:text-white">
-                {user?.name}
-              </h2>
+              <h2 className="font-semibold text-zinc-900 dark:text-white">{user?.name}</h2>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  available
-                </span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">available</span>
               </div>
             </div>
           </div>
+
           <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
             <MoreHorizontal className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
           </button>
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
@@ -249,103 +254,114 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
       <div className="flex-1 overflow-y-auto">
         {filteredChats.length === 0 ? (
           <div className="p-4 flex flex-col h-full justify-center items-center text-center text-zinc-500 dark:text-zinc-400 select-none">
-            {/* Illustration */}
             <MessageCircleOff className="w-10 h-10 mb-4 text-zinc-400 dark:text-zinc-500" />
-
-            {/* Title */}
             <p className="text-lg font-medium text-zinc-600 dark:text-zinc-300">
               No chats found
             </p>
-
-            {/* Subtitle */}
             <p className="text-sm mt-1 text-zinc-500 dark:text-zinc-400">
               Click on the{" "}
-              <span className="font-semibold text-zinc-300 dark:text-white">
-                “+”
-              </span>{" "}
+              <span className="font-semibold text-zinc-300 dark:text-white">“+”</span>{" "}
               above to start chatting
             </p>
           </div>
         ) : (
-          filteredChats.map((chat) => (
-            <div
-              key={chat.id}
-              onClick={() => onChatSelect(chat.id)}
-              className={`p-4 border-b border-zinc-100 dark:border-zinc-800 cursor-pointer transition ${
-                selectedChatId === chat.id
-                  ? "bg-zinc-100 dark:bg-zinc-800"
-                  : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                {/* Avatar */}
-                <div className="relative">
-                  {chat.avatar ? (
-                    <Image
-                      src={chat.avatar}
-                      alt={chat.name}
-                      width={48}
-                      height={48}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
-                      <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                        {chat.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  {chat.type === "PRIVATE" && chat.lastSeen && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-500 border-2 border-white dark:border-zinc-900 rounded-full" />
-                  )}
-                  {chat.type === "GROUP" && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-bold">
-                        {chat.members.length}
-                      </span>
-                    </div>
-                  )}
-                </div>
+          filteredChats.map((chat) => {
+            const otherMember =
+              chat.type === "PRIVATE"
+                ? chat.members.find((m) => m.id !== user?.id)
+                : null;
 
-                {/* Chat Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-medium text-zinc-900 dark:text-white truncate">
-                      {chat.name}
-                    </h4>
-                    {chat.lastMessage && (
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">
-                        {formatTime(chat.lastMessage.createdAt)}
-                      </span>
+            // FINAL FIX: correct online check
+            const isOnline =
+              otherMember &&
+              onlineUsers?.some((u) => u.user?.id === otherMember.id);
+
+            return (
+              <div
+                key={chat.id}
+                onClick={() => onChatSelect(chat.id)}
+                className={`p-4 border-b border-zinc-100 dark:border-zinc-800 cursor-pointer transition ${
+                  selectedChatId === chat.id
+                    ? "bg-zinc-100 dark:bg-zinc-800"
+                    : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Avatar */}
+                  <div className="relative">
+                    {chat.avatar ? (
+                      <Image
+                        src={chat.avatar}
+                        alt={chat.name}
+                        width={48}
+                        height={48}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                        <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                          {chat.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ONLINE/OFFLINE DOT */}
+                    {chat.type === "PRIVATE" && otherMember && (
+                      <div
+                        className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-zinc-900 ${
+                          isOnline ? "bg-green-500" : "bg-yellow-500"
+                        }`}
+                      />
+                    )}
+
+                    {/* GROUP PARTICIPANT COUNT */}
+                    {chat.type === "GROUP" && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center">
+                        <span className="text-xs text-white font-bold">
+                          {chat.members.length}
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  {/* {chat.type === 'PRIVATE' && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      typing...
-                    </p>
-                  )} */}
-                  {chat.type === "GROUP" && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                      {chat.members.length} participants
-                    </p>
-                  )}
+                  {/* Chat Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-medium text-zinc-900 dark:text-white truncate">
+                        {chat.name}
+                      </h4>
 
-                  {chat.lastMessage ? (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
-                      {chat.lastMessage.senderId === user?.id
-                        ? `You: ${truncateMessage(chat.lastMessage.content)}`
-                        : truncateMessage(chat.lastMessage.content)}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-500 italic">
-                      No messages yet
-                    </p>
-                  )}
+                      {chat.lastMessage && (
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">
+                          {formatTime(chat.lastMessage.createdAt)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* GROUP INFO */}
+                    {chat.type === "GROUP" && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                        {chat.members.length} participants
+                      </p>
+                    )}
+
+                    {/* LAST MESSAGE */}
+                    {chat.lastMessage ? (
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
+                        {chat.lastMessage.senderId === user?.id
+                          ? `You: ${truncateMessage(chat.lastMessage.content)}`
+                          : truncateMessage(chat.lastMessage.content)}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-zinc-500 dark:text-zinc-500 italic">
+                        No messages yet
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 interface UseSocketOptions {
@@ -19,6 +19,9 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   const [onlineUsers, setOnlineUsers] = useState<Map<string, any>>(new Map());
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()); // userId -> conversationId
   const socketRef = useRef<Socket | null>(null);
+  
+  // Memoize the online users array to prevent unnecessary re-renders
+  const onlineUsersArray = useMemo(() => Array.from(onlineUsers.values()), [onlineUsers]);
 
   useEffect(() => {
     if (!options.token) {
@@ -177,7 +180,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
   return {
     isConnected,
-    onlineUsers,
+    onlineUsers: onlineUsersArray, // Use memoized array
     typingUsers,
     sendMessage,
     startTyping,
