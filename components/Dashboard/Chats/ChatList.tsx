@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Plus, MoreHorizontal } from "lucide-react";
+import { Search, Plus, MoreHorizontal, MessageCircleOff } from "lucide-react";
 import Image from "next/image";
 import NewChatModal from "./NewChatModal";
 
@@ -186,7 +186,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
       <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-            Last chats
+            Recent chats
           </h3>
           <button
             onClick={() => setShowNewChatModal(true)}
@@ -200,8 +200,23 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
         {filteredChats.length === 0 ? (
-          <div className="p-4 text-center text-zinc-500 dark:text-zinc-400">
-            No chats found
+          <div className="p-4 flex flex-col h-full justify-center items-center text-center text-zinc-500 dark:text-zinc-400 select-none">
+            {/* Illustration */}
+            <MessageCircleOff className="w-10 h-10 mb-4 text-zinc-400 dark:text-zinc-500" />
+
+            {/* Title */}
+            <p className="text-lg font-medium text-zinc-600 dark:text-zinc-300">
+              No chats found
+            </p>
+
+            {/* Subtitle */}
+            <p className="text-sm mt-1 text-zinc-500 dark:text-zinc-400">
+              Click on the{" "}
+              <span className="font-semibold text-zinc-300 dark:text-white">
+                “+”
+              </span>{" "}
+              above to start chatting
+            </p>
           </div>
         ) : (
           filteredChats.map((chat) => (
