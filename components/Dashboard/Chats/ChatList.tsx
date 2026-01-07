@@ -23,7 +23,7 @@ interface LastMessage {
 
 interface Chat {
   id: string;
-  type: 'PRIVATE' | 'GROUP';
+  type: "PRIVATE" | "GROUP";
   name: string;
   avatar: string | null;
   lastSeen: string | null;
@@ -55,17 +55,33 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
 
   const fetchChats = async () => {
     try {
-      const response = await fetch('/api/chats');
+      const response = await fetch("/api/chats");
       const data = await response.json();
 
       if (data.success) {
-        setChats(data.chats);
+        const sortedChats = data.chats.sort((a: Chat, b: Chat) => {
+          const aTime = a.lastMessage?.createdAt
+            ? new Date(a.lastMessage.createdAt).getTime()
+            : a.lastSeen
+            ? new Date(a.lastSeen).getTime()
+            : 0;
+
+          const bTime = b.lastMessage?.createdAt
+            ? new Date(b.lastMessage.createdAt).getTime()
+            : b.lastSeen
+            ? new Date(b.lastSeen).getTime()
+            : 0;
+
+          return bTime - aTime; // latest first
+        });
+
+        setChats(sortedChats);
         setUser(data.user);
       } else {
-        console.error('Failed to fetch chats:', data.error);
+        console.error("Failed to fetch chats:", data.error);
       }
     } catch (error) {
-      console.error('Error fetching chats:', error);
+      console.error("Error fetching chats:", error);
     } finally {
       setLoading(false);
     }
@@ -78,7 +94,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     onChatSelect(chatId);
   };
 
-  const filteredChats = chats.filter(chat =>
+  const filteredChats = chats.filter((chat) =>
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -88,21 +104,23 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
     if (diffInHours < 24) {
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
       });
     }
   };
 
   const truncateMessage = (content: string, maxLength: number = 40) => {
-    return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+    return content.length > maxLength
+      ? content.substring(0, maxLength) + "..."
+      : content;
   };
 
   if (loading) {
@@ -140,7 +158,9 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
               </h2>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">available</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  available
+                </span>
               </div>
             </div>
           </div>
@@ -168,7 +188,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
           <h3 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
             Last chats
           </h3>
-          <button 
+          <button
             onClick={() => setShowNewChatModal(true)}
             className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition"
           >
@@ -190,8 +210,8 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
               onClick={() => onChatSelect(chat.id)}
               className={`p-4 border-b border-zinc-100 dark:border-zinc-800 cursor-pointer transition ${
                 selectedChatId === chat.id
-                  ? 'bg-zinc-100 dark:bg-zinc-800'
-                  : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                  ? "bg-zinc-100 dark:bg-zinc-800"
+                  : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
               }`}
             >
               <div className="flex items-start gap-3">
@@ -212,12 +232,14 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                       </span>
                     </div>
                   )}
-                  {chat.type === 'PRIVATE' && chat.lastSeen && (
+                  {chat.type === "PRIVATE" && chat.lastSeen && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-500 border-2 border-white dark:border-zinc-900 rounded-full" />
                   )}
-                  {chat.type === 'GROUP' && (
+                  {chat.type === "GROUP" && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-bold">{chat.members.length}</span>
+                      <span className="text-xs text-white font-bold">
+                        {chat.members.length}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -234,13 +256,13 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                       </span>
                     )}
                   </div>
-                  
+
                   {/* {chat.type === 'PRIVATE' && (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       typing...
                     </p>
                   )} */}
-                  {chat.type === 'GROUP' && (
+                  {chat.type === "GROUP" && (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                       {chat.members.length} participants
                     </p>
@@ -248,10 +270,9 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
 
                   {chat.lastMessage ? (
                     <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
-                      {chat.lastMessage.senderId === user?.id 
+                      {chat.lastMessage.senderId === user?.id
                         ? `You: ${truncateMessage(chat.lastMessage.content)}`
-                        : truncateMessage(chat.lastMessage.content)
-                      }
+                        : truncateMessage(chat.lastMessage.content)}
                     </p>
                   ) : (
                     <p className="text-sm text-zinc-500 dark:text-zinc-500 italic">
