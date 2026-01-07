@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, Plus, MoreHorizontal, MessageCircleOff } from "lucide-react";
 import Image from "next/image";
 import NewChatModal from "./NewChatModal";
+import { cacheStore } from "@/lib/hooks/cacheStore";
 
 interface User {
   id: string;
@@ -50,6 +51,21 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
 
   useEffect(() => {
+    let hasCache = false;
+
+    try {
+      const cached = cacheStore.getCachedChatList();
+      if (cached) {
+        setChats(cached.chats);
+        setUser(cached.user);
+        hasCache = true;
+      }
+    } catch {}
+
+    // If no cache, show loader until server returns
+    setLoading(!hasCache);
+
+    // Sync always
     fetchChats();
   }, []);
 
@@ -58,32 +74,37 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
       const response = await fetch("/api/chats");
       const data = await response.json();
 
-      if (data.success) {
-        const sortedChats = data.chats.sort((a: Chat, b: Chat) => {
-          const aTime = a.lastMessage?.createdAt
-            ? new Date(a.lastMessage.createdAt).getTime()
-            : a.lastSeen
-            ? new Date(a.lastSeen).getTime()
-            : 0;
-
-          const bTime = b.lastMessage?.createdAt
-            ? new Date(b.lastMessage.createdAt).getTime()
-            : b.lastSeen
-            ? new Date(b.lastSeen).getTime()
-            : 0;
-
-          return bTime - aTime; // latest first
-        });
-
-        setChats(sortedChats);
-        setUser(data.user);
-      } else {
-        console.error("Failed to fetch chats:", data.error);
+      if (!data.success || !Array.isArray(data.chats)) {
+        console.warn("Invalid chat data:", data);
+        return;
       }
+
+      const sortedChats = data.chats.sort((a: Chat, b: Chat) => {
+        const aTime = a.lastMessage?.createdAt
+          ? new Date(a.lastMessage.createdAt).getTime()
+          : a.lastSeen
+          ? new Date(a.lastSeen).getTime()
+          : 0;
+
+        const bTime = b.lastMessage?.createdAt
+          ? new Date(b.lastMessage.createdAt).getTime()
+          : b.lastSeen
+          ? new Date(b.lastSeen).getTime()
+          : 0;
+
+        return bTime - aTime;
+      });
+
+      // Update UI instantly
+      setChats(sortedChats);
+      setUser(data.user);
+
+      // Cache it
+      cacheStore.cacheChatList(sortedChats, data.user);
     } catch (error) {
-      console.error("Error fetching chats:", error);
+      console.error("fetchChats failed:", error);
     } finally {
-      setLoading(false);
+      setLoading(false); // ALWAYS hide loader
     }
   };
 

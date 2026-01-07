@@ -47,6 +47,47 @@ interface ChatCache {
   lastFetched: number;
 }
 
+interface CachedChatList {
+  chats: Chat[];
+  user: User | null;
+  lastFetched: number;
+}
+
+interface Chat {
+  id: string;
+  type: "PRIVATE" | "GROUP";
+  name: string;
+  avatar: string | null;
+  lastSeen: string | null;
+  lastMessage: LastMessage | null;
+  members: Array<{
+    id: string;
+    name: string;
+    username: string;
+    avatar: string | null;
+    isAdmin: boolean;
+  }>;
+}
+
+interface LastMessage {
+  id: string;
+  content: string;
+  senderId: string;
+  senderName: string;
+  createdAt: string;
+}
+
+
+interface User {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  avatar: string | null;
+}
+
+
+
 class CacheStore {
   private static instance: CacheStore;
   private cache: Map<string, ChatCache> = new Map();
@@ -75,10 +116,10 @@ class CacheStore {
       const cached = localStorage.getItem(`chat_${chatId}`);
       if (cached) {
         const parsedCache: ChatCache = JSON.parse(cached);
-        
+
         // Update memory cache
         this.cache.set(chatId, parsedCache);
-        
+
         return {
           messages: parsedCache.messages,
           conversation: parsedCache.conversation
@@ -87,7 +128,7 @@ class CacheStore {
     } catch (error) {
       console.error('Error reading from cache:', error);
     }
-    
+
     return null;
   }
 
@@ -128,7 +169,7 @@ class CacheStore {
     try {
       const cached = this.getCachedMessages(chatId);
       if (cached) {
-        const updatedMessages = cached.messages.map(msg => 
+        const updatedMessages = cached.messages.map(msg =>
           msg.id === messageId ? { ...msg, ...updates } : msg
         );
         this.cacheMessages(chatId, updatedMessages, cached.conversation);
@@ -168,6 +209,43 @@ class CacheStore {
       console.error('Error clearing all cache:', error);
     }
   }
+
+  // CACHE CHAT LIST
+  getCachedChatList(): { chats: Chat[]; user: User | null } | null {
+    try {
+      const cached = localStorage.getItem("chat_list_cache");
+      if (!cached) return null;
+
+      const parsed: CachedChatList = JSON.parse(cached);
+
+      // Validate expiry
+      if (Date.now() - parsed.lastFetched > this.CACHE_EXPIRY) return null;
+
+      return { chats: parsed.chats, user: parsed.user };
+    } catch (e) {
+      console.error("Error reading chat list cache:", e);
+      return null;
+    }
+  }
+
+  cacheChatList(chats: Chat[], user: User | null) {
+    try {
+      const toSave: CachedChatList = {
+        chats,
+        user,
+        lastFetched: Date.now(),
+      };
+
+      localStorage.setItem("chat_list_cache", JSON.stringify(toSave));
+    } catch (e) {
+      console.error("Error writing chat list cache:", e);
+    }
+  }
+
+  clearChatListCache() {
+    localStorage.removeItem("chat_list_cache");
+  }
+
 }
 
 export const cacheStore = CacheStore.getInstance();
