@@ -115,9 +115,36 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     onChatSelect(chatId);
   };
 
-  const filteredChats = chats.filter((chat) =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredChats = chats.filter((chat) => {
+    if (!searchQuery.trim()) return true;
+
+    const q = searchQuery.toLowerCase();
+
+    // 1. Group chats → use chat.name
+    if (chat.type === "GROUP") {
+      if (chat.name.toLowerCase().includes(q)) return true;
+    }
+
+    // 2. Private chats → find the OTHER user
+    if (chat.type === "PRIVATE" && user) {
+      const otherMember = chat.members.find((m) => m.id !== user.id);
+      if (otherMember) {
+        if (
+          otherMember.name.toLowerCase().includes(q) ||
+          otherMember.username.toLowerCase().includes(q)
+        ) {
+          return true;
+        }
+      }
+    }
+
+    // 3. Search inside last message
+    if (chat.lastMessage?.content?.toLowerCase().includes(q)) {
+      return true;
+    }
+
+    return false;
+  });
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
