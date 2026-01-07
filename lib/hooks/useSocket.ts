@@ -19,7 +19,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   const [onlineUsers, setOnlineUsers] = useState<Map<string, any>>(new Map());
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()); // userId -> conversationId
   const socketRef = useRef<Socket | null>(null);
-  
+
   // Memoize the online users array to prevent unnecessary re-renders
   const onlineUsersArray = useMemo(() => Array.from(onlineUsers.values()), [onlineUsers]);
 
@@ -106,6 +106,13 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
+
+    socket.on("online_users", (users) => {
+      const map = new Map();
+      users.forEach((u: any) => map.set(u.userId, u));
+      setOnlineUsers(map);
+    });
+
 
     return () => {
       socket.disconnect();

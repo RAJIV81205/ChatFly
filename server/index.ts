@@ -36,6 +36,23 @@ const io = new Server(server, {
   },
 });
 
+function broadcastOnlineUsers() {
+  const users = [];
+
+  for (const [userId, sockets] of onlineUsers.entries()) {
+    if (sockets.size > 0) {
+      const socketId = Array.from(sockets)[0];
+      const data = socketData.get(socketId);
+      if (data) {
+        users.push({ userId, user: data.user });
+      }
+    }
+  }
+
+  io.emit("online_users", users);
+}
+
+
 // Store online users and their socket connections
 // Changed to support multiple connections per user
 const onlineUsers = new Map(); // userId -> Set of socketIds
@@ -127,6 +144,8 @@ io.on('connection', async (socket: Socket) => {
       user: user
     });
   });
+
+  broadcastOnlineUsers();
 
   // Handle new message
   authenticatedSocket.on('send_message', async (data: any) => {
@@ -397,6 +416,8 @@ io.on('connection', async (socket: Socket) => {
     // Clean up socket data
     userSockets.delete(authenticatedSocket.id);
     socketData.delete(authenticatedSocket.id);
+    broadcastOnlineUsers();
+
 
     // Stop any typing indicators for this socket
     conversations.forEach((conv: any) => {

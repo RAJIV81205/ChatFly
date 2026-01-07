@@ -309,7 +309,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                     {chat.type === "PRIVATE" && otherMember && (
                       <div
                         className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-zinc-900 ${
-                          isOnline ? "bg-green-500" : "bg-yellow-500"
+                          isOnline ? "bg-emerald-500" : "bg-gray-400 dark:bg-gray-500"
                         }`}
                       />
                     )}
