@@ -111,6 +111,19 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        // Get unread message count for this conversation
+        const unreadCount = await prisma.message.count({
+          where: {
+            conversationId: conversation.id,
+            senderId: { not: user.id }, // Don't count own messages
+            readReceipts: {
+              none: {
+                userId: user.id
+              }
+            }
+          }
+        });
+
         return {
           id: conversation.id,
           type: conversation.type,
@@ -118,6 +131,7 @@ export async function GET(request: NextRequest) {
           avatar: otherMember?.user.profilePicUrl || null,
           lastSeen: otherMember?.user.lastSeen || null,
           lastMessage,
+          unreadCount,
           members: conversation.members.map((member: any) => ({
             id: member.user.id,
             name: member.user.fullName,

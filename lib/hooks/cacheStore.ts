@@ -60,6 +60,7 @@ interface Chat {
   avatar: string | null;
   lastSeen: string | null;
   lastMessage: LastMessage | null;
+  unreadCount?: number; // Make it optional for backward compatibility
   members: Array<{
     id: string;
     name: string;

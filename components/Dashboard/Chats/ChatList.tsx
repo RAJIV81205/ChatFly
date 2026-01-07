@@ -31,6 +31,7 @@ interface Chat {
   avatar: string | null;
   lastSeen: string | null;
   lastMessage: LastMessage | null;
+  unreadCount: number;
   members: Array<{
     id: string;
     name: string;
@@ -55,6 +56,18 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
 
   const { onlineUsers , getTypingUsersInConversation} = useSocket({
     token: socketToken || undefined,
+    onNewMessage: (message) => {
+      // When a new message arrives, refresh the chat list to update unread counts
+      // Only refresh if the message is not from the current user and not in the selected chat
+      if (message.senderId !== user?.id && message.conversationId !== selectedChatId) {
+        fetchChats();
+      }
+    },
+    onMessageRead: (data) => {
+      // When a message is read, update the unread count for that conversation
+      // This handles read receipts from other users in the same conversation
+      fetchChats();
+    },
     onUserTyping: () => {
       // Force re-render when someone starts typing
       setChats(prev => [...prev]);
@@ -83,7 +96,12 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     try {
       const cached = cacheStore.getCachedChatList();
       if (cached) {
-        setChats(cached.chats);
+        // Ensure cached chats have unreadCount property
+        const chatsWithUnreadCount = cached.chats.map(chat => ({
+          ...chat,
+          unreadCount: (chat as any).unreadCount || 0
+        }));
+        setChats(chatsWithUnreadCount);
         setUser(cached.user);
         hasCache = true;
       }
@@ -136,6 +154,42 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const handleChatCreated = (chatId: string) => {
     fetchChats();
     onChatSelect(chatId);
+  };
+
+  const markChatAsRead = async (chatId: string) => {
+    try {
+      const response = await fetch(`/api/chats/${chatId}/read`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        // Update the local state to reflect read status
+        setChats(prevChats => 
+          prevChats.map(chat => 
+            chat.id === chatId 
+              ? { ...chat, unreadCount: 0 }
+              : chat
+          )
+        );
+        
+        // Update cache
+        const updatedChats = chats.map(chat => 
+          chat.id === chatId 
+            ? { ...chat, unreadCount: 0 }
+            : chat
+        );
+        if (user) {
+          cacheStore.cacheChatList(updatedChats, user);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to mark chat as read:', error);
+    }
+  };
+
+  const handleChatSelect = (chatId: string) => {
+    onChatSelect(chatId);
+    markChatAsRead(chatId);
   };
 
   // Search filter
@@ -316,10 +370,12 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
             return (
               <div
                 key={chat.id}
-                onClick={() => onChatSelect(chat.id)}
+                onClick={() => handleChatSelect(chat.id)}
                 className={`p-4 border-b border-zinc-100 dark:border-zinc-800 cursor-pointer transition ${
                   selectedChatId === chat.id
                     ? "bg-zinc-100 dark:bg-zinc-800"
+                    : chat.unreadCount > 0
+                    ? "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 bg-blue-50/30 dark:bg-blue-900/10"
                     : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                 }`}
               >
@@ -364,15 +420,26 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                   {/* Chat Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-medium text-zinc-900 dark:text-white truncate">
+                      <h4 className={`text-zinc-900 dark:text-white truncate ${
+                        chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
+                      }`}>
                         {chat.name}
                       </h4>
 
-                      {chat.lastMessage && (
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">
-                          {formatTime(chat.lastMessage.createdAt)}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 ml-2">
+                        {chat.lastMessage && (
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {formatTime(chat.lastMessage.createdAt)}
+                          </span>
+                        )}
+                        
+                        {/* Unread count badge */}
+                        {chat.unreadCount > 0 && (
+                          <div className="bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shadow-sm">
+                            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* GROUP INFO */}

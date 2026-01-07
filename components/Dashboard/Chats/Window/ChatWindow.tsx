@@ -563,10 +563,20 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             );
           });
 
-          // Mark each unread message as read
-          unreadMessages.forEach((msg: Message) => {
-            markMessageRead(msg.id, chatId);
-          });
+          // Use bulk read API for better performance
+          if (unreadMessages.length > 0) {
+            try {
+              await fetch(`/api/chats/${chatId}/read`, {
+                method: 'POST'
+              });
+            } catch (error) {
+              console.error('Failed to mark messages as read:', error);
+              // Fallback to individual message marking
+              unreadMessages.forEach((msg: Message) => {
+                markMessageRead(msg.id, chatId);
+              });
+            }
+          }
         }
 
         // Scroll to bottom after messages are loaded (only if no cached data was shown)
