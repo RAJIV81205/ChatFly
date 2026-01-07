@@ -53,8 +53,16 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [socketToken, setSocketToken] = useState<string | null>(null);
 
-  const { onlineUsers } = useSocket({
+  const { onlineUsers , getTypingUsersInConversation} = useSocket({
     token: socketToken || undefined,
+    onUserTyping: () => {
+      // Force re-render when someone starts typing
+      setChats(prev => [...prev]);
+    },
+    onUserStoppedTyping: () => {
+      // Force re-render when someone stops typing
+      setChats(prev => [...prev]);
+    },
   });
 
   // Load cache + socket token
@@ -84,6 +92,8 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
     setLoading(!hasCache);
     fetchChats();
   }, []);
+
+
 
   const fetchChats = async () => {
     try {
@@ -188,7 +198,34 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
   }
 
   return (
-    <div className="w-80 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
+    <>
+      <style jsx>{`
+        @keyframes typingDot {
+          0%,
+          60%,
+          100% {
+            transform: translateY(0);
+            opacity: 0.4;
+          }
+          30% {
+            transform: translateY(-4px);
+            opacity: 1;
+          }
+        }
+        .typing-dot-1 {
+          animation: typingDot 1.4s infinite;
+          animation-delay: 0s;
+        }
+        .typing-dot-2 {
+          animation: typingDot 1.4s infinite;
+          animation-delay: 0.2s;
+        }
+        .typing-dot-3 {
+          animation: typingDot 1.4s infinite;
+          animation-delay: 0.4s;
+        }
+      `}</style>
+      <div className="w-80 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center justify-between mb-4">
@@ -346,17 +383,47 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
                     )}
 
                     {/* LAST MESSAGE */}
-                    {chat.lastMessage ? (
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
-                        {chat.lastMessage.senderId === user?.id
-                          ? `You: ${truncateMessage(chat.lastMessage.content)}`
-                          : truncateMessage(chat.lastMessage.content)}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-zinc-500 dark:text-zinc-500 italic">
-                        No messages yet
-                      </p>
-                    )}
+                    {(() => {
+                      // Check if someone is typing in this chat
+                      const typingData = getTypingUsersInConversation(chat.id);
+                      const typingUsers = typingData.filter(data => data.userId !== user?.id);
+                      
+                      if (typingUsers.length > 0) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <div className="w-1 h-1 bg-emerald-500 rounded-full typing-dot-1"></div>
+                              <div className="w-1 h-1 bg-emerald-500 rounded-full typing-dot-2"></div>
+                              <div className="w-1 h-1 bg-emerald-500 rounded-full typing-dot-3"></div>
+                            </div>
+                            <span className="text-sm text-emerald-600 dark:text-emerald-400 italic">
+                              {chat.type === "PRIVATE"
+                                ? "typing..."
+                                : typingUsers.length === 1
+                                ? `${typingUsers[0].user?.fullName || 'Someone'} is typing...`
+                                : `${typingUsers.length} people are typing...`}
+                            </span>
+                          </div>
+                        );
+                      }
+                      
+                      // Show last message if no one is typing
+                      if (chat.lastMessage) {
+                        return (
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
+                            {chat.lastMessage.senderId === user?.id
+                              ? `You: ${truncateMessage(chat.lastMessage.content)}`
+                              : truncateMessage(chat.lastMessage.content)}
+                          </p>
+                        );
+                      }
+                      
+                      return (
+                        <p className="text-sm text-zinc-500 dark:text-zinc-500 italic">
+                          No messages yet
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -371,6 +438,7 @@ const ChatList = ({ onChatSelect, selectedChatId }: ChatListProps) => {
         onChatCreated={handleChatCreated}
       />
     </div>
+    </>
   );
 };
 

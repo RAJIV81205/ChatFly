@@ -17,7 +17,7 @@ interface UseSocketOptions {
 export const useSocket = (options: UseSocketOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Map<string, any>>(new Map());
-  const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()); // userId -> conversationId
+  const [typingUsers, setTypingUsers] = useState<Map<string, { conversationId: string; user: any }>>(new Map()); // userId -> {conversationId, user}
   const socketRef = useRef<Socket | null>(null);
 
   // Memoize the online users array to prevent unnecessary re-renders
@@ -64,7 +64,10 @@ export const useSocket = (options: UseSocketOptions = {}) => {
 
     // Typing events
     socket.on('user_typing', (data) => {
-      setTypingUsers(prev => new Map(prev.set(data.userId, data.conversationId)));
+      setTypingUsers(prev => new Map(prev.set(data.userId, { 
+        conversationId: data.conversationId, 
+        user: data.user 
+      })));
       options.onUserTyping?.(data);
     });
 
@@ -166,14 +169,19 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   };
 
   const isUserTyping = (userId: string, conversationId: string) => {
-    return typingUsers.get(userId) === conversationId;
+    const typingData = typingUsers.get(userId);
+    return typingData?.conversationId === conversationId;
   };
 
   const getTypingUsersInConversation = (conversationId: string) => {
     const typing = [];
-    for (const [userId, convId] of typingUsers.entries()) {
-      if (convId === conversationId) {
-        typing.push(userId);
+    for (const [userId, data] of typingUsers.entries()) {
+      if (data.conversationId === conversationId) {
+        typing.push({
+          userId,
+          user: data.user,
+          conversationId: data.conversationId
+        });
       }
     }
     return typing;
