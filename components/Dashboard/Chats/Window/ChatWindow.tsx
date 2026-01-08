@@ -18,6 +18,7 @@ import { MessageStatus } from "./MessageStatus";
 import MessageInput from "./MessageInput";
 import Contact from "./Contact";
 import FilePreview from "./FilePreview";
+import ZegoCallPopup from "@/components/Calls/ZegoCallPopup";
 
 interface User {
   id: string;
@@ -97,6 +98,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onlineStatusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showCall, setShowCall] = useState(false);
+  const [activeRoom, setActiveRoom] = useState<string | null>(null);
+  const [incomingCall, setIncomingCall] = useState<{
+    callerId: string;
+    roomId: string;
+  } | null>(null);
 
   // Socket integration
   const {
@@ -110,14 +117,16 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     isUserOnline,
     getTypingUsersInConversation,
     notifyFileMessage,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    endCall,
   } = useSocket({
     token,
     onUserTyping: (data) => {
-      // Force re-render when someone starts typing
       setForceUpdate((prev) => prev + 1);
     },
     onUserStoppedTyping: (data) => {
-      // Force re-render when someone stops typing
       setForceUpdate((prev) => prev + 1);
     },
     onNewMessage: (message) => {
@@ -129,7 +138,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         status: message.status || "sent",
       };
 
-      // Remove any temporary message with same content and sender
       setMessages((prev) => {
         const filteredMessages = prev.filter(
           (msg) =>
@@ -142,18 +150,15 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             )
         );
         const updatedMessages = [...filteredMessages, safeMessage];
-        
-        // Update cache with new message
+
         if (chatId) {
           cacheStore.addMessageToCache(chatId, safeMessage);
         }
-        
+
         return updatedMessages;
       });
 
-      // Mark message as read immediately if it's not from current user and chat is open
       if (safeMessage.senderId !== currentUserId && chatId) {
-        // // console.log('Auto-marking new message as read');
         markMessageRead(safeMessage.id, chatId);
       }
     },
@@ -168,12 +173,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         if (result.success) {
           setMessages((prev) => {
             const updatedMessages = [...prev, result.message];
-            
+
             // Update cache with new message
             if (chatId) {
               cacheStore.addMessageToCache(chatId, result.message);
             }
-            
+
             return updatedMessages;
           });
 
@@ -276,6 +281,31 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         });
       });
     },
+    onIncomingCall: ({ callerId, roomId }) => {
+      console.log('Incoming call received:', { callerId, roomId });
+      setIncomingCall({ callerId, roomId });
+    },
+    onCallAccepted: ({ roomId }) => {
+      console.log('Call accepted, joining room:', roomId);
+      setActiveRoom(roomId);
+      setShowCall(true);
+      setIncomingCall(null);
+    },
+    onCallRejected: () => {
+      console.log('Call rejected');
+      alert("Call rejected");
+      setIncomingCall(null);
+    },
+    onCallEnded: () => {
+      console.log('Call ended');
+      setShowCall(false);
+      setActiveRoom(null);
+      alert("Call ended");
+    },
+    onCallFailed: ({ reason }) => {
+      console.log('Call failed:', reason);
+      alert(`Call failed: ${reason}`);
+    },
   });
 
   useEffect(() => {
@@ -285,13 +315,13 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       if (cached) {
         setMessages(cached.messages);
         setConversation(cached.conversation);
-        
+
         // Scroll to bottom immediately with cached messages
         setTimeout(() => {
           scrollToBottom();
         }, 0);
       }
-      
+
       // Then fetch fresh data in background
       fetchMessages();
       joinConversation(chatId);
@@ -534,7 +564,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     if (!cached) {
       setLoading(true);
     }
-    
+
     try {
       const response = await fetch(`/api/chats/${chatId}/messages`);
       const data = await response.json();
@@ -542,7 +572,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       if (data.success) {
         setMessages(data.messages);
         setConversation(data.conversation);
-        
+
         // Cache the fresh data
         cacheStore.cacheMessages(chatId, data.messages, data.conversation);
 
@@ -567,10 +597,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           if (unreadMessages.length > 0) {
             try {
               await fetch(`/api/chats/${chatId}/read`, {
-                method: 'POST'
+                method: "POST",
               });
             } catch (error) {
-              console.error('Failed to mark messages as read:', error);
+              console.error("Failed to mark messages as read:", error);
               // Fallback to individual message marking
               unreadMessages.forEach((msg: Message) => {
                 markMessageRead(msg.id, chatId);
@@ -799,8 +829,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const handleFileUpload = async (file: File) => {
     if (!chatId || !currentUserId || uploadingFile) return;
 
-    // console.log("File upload triggered:", file.name, file.type);
-
     // Validate file type and size
     const maxSize = 10 * 1024 * 1024; // 10MB (matching backend)
     if (file.size > maxSize) {
@@ -868,10 +896,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         // Add the message to our own UI immediately
         setMessages((prev) => {
           const updatedMessages = [...prev, data.message];
-          
+
           // Update cache with new message
           cacheStore.addMessageToCache(chatId, data.message);
-          
+
           return updatedMessages;
         });
       } else {
@@ -943,6 +971,23 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const handleVideoCall = () => {
+    if (!conversation || !currentUserId || !isConnected) return;
+
+    const roomId = conversation.id + "-" + Date.now();
+
+    // notify the other user
+    const otherUser = conversation.members.find((m) => m.id !== currentUserId);
+    
+    if (!otherUser) return;
+
+    initiateCall(currentUserId, otherUser.id, roomId);
+
+    // open popup for caller
+    setActiveRoom(roomId);
+    setShowCall(true);
   };
 
   // For file URLs, check if they're already decrypted or need to be served through our API
@@ -1203,9 +1248,13 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
                 <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
                   <Phone className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                 </button>
-                <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition">
+                <button
+                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
+                  onClick={handleVideoCall}
+                >
                   <Video className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
                 </button>
+
                 <div className="relative">
                   <button
                     className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition"
@@ -1350,52 +1399,56 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
             );
           })}
           <div ref={messagesEndRef} />
-          {chatId && (() => {
-            const typingData = getTypingUsersInConversation(chatId);
-            const typingUsers = typingData
-              .filter(data => data.userId !== currentUserId)
-              .map(data => ({
-                id: data.userId,
-                name: data.user?.fullName || data.user?.name || 'Unknown User'
-              }));
+          {chatId &&
+            (() => {
+              const typingData = getTypingUsersInConversation(chatId);
+              const typingUsers = typingData
+                .filter((data) => data.userId !== currentUserId)
+                .map((data) => ({
+                  id: data.userId,
+                  name:
+                    data.user?.fullName || data.user?.name || "Unknown User",
+                }));
 
-            if (typingUsers.length === 0) return null;
+              if (typingUsers.length === 0) return null;
 
-            return (
-              <div
-                ref={typingIndicatorRef}
-                className="mb-3 flex items-center gap-3"
-              >
-                <div className="shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
-                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                      {typingUsers.length === 1
-                        ? typingUsers[0]?.name?.charAt(0).toUpperCase()
-                        : "👥"}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-1"></div>
-                      <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-2"></div>
-                      <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-3"></div>
+              return (
+                <div
+                  ref={typingIndicatorRef}
+                  className="mb-3 flex items-center gap-3"
+                >
+                  <div className="shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                        {typingUsers.length === 1
+                          ? typingUsers[0]?.name?.charAt(0).toUpperCase()
+                          : "👥"}
+                      </span>
                     </div>
-                    <span className="text-xs text-zinc-600 dark:text-zinc-400 ml-2">
-                      {conversation?.type === "PRIVATE"
-                        ? ""
-                        : typingUsers.length === 1
-                        ? `${typingUsers[0]?.name} is typing...`
-                        : typingUsers.length === 2
-                        ? `${typingUsers[0]?.name} and ${typingUsers[1]?.name} are typing...`
-                        : `${typingUsers[0]?.name} and ${typingUsers.length - 1} others are typing...`}
-                    </span>
+                  </div>
+                  <div className="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-1"></div>
+                        <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-2"></div>
+                        <div className="w-2 h-2 bg-zinc-500 dark:bg-zinc-400 rounded-full typing-dot-3"></div>
+                      </div>
+                      <span className="text-xs text-zinc-600 dark:text-zinc-400 ml-2">
+                        {conversation?.type === "PRIVATE"
+                          ? ""
+                          : typingUsers.length === 1
+                          ? `${typingUsers[0]?.name} is typing...`
+                          : typingUsers.length === 2
+                          ? `${typingUsers[0]?.name} and ${typingUsers[1]?.name} are typing...`
+                          : `${typingUsers[0]?.name} and ${
+                              typingUsers.length - 1
+                            } others are typing...`}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
         </div>
 
         {/* Message Input */}
@@ -1411,6 +1464,73 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           onFileUpload={handleFileUpload}
         />
       </div>
+
+      {incomingCall && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-lg shadow-xl w-80 text-center">
+            <h2 className="text-lg font-semibold mb-4">Incoming Video Call</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              From: {incomingCall.callerId}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
+              Socket: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+            </p>
+
+            <div className="flex justify-center gap-4">
+              <button
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition"
+                onClick={() => {
+                  console.log('Accept button clicked:', incomingCall);
+                  console.log('Socket connected:', isConnected);
+                  
+                  // Accept the call via socket
+                  acceptCall(incomingCall.roomId, incomingCall.callerId);
+                  
+                  // Immediately join the video call room for the receiver
+                  setActiveRoom(incomingCall.roomId);
+                  setShowCall(true);
+                  setIncomingCall(null);
+                }}
+              >
+                Accept
+              </button>
+
+              <button
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
+                onClick={() => {
+                  console.log('Reject button clicked:', incomingCall);
+                  console.log('Socket connected:', isConnected);
+                  
+                  // Reject the call via socket
+                  rejectCall(incomingCall.roomId, incomingCall.callerId);
+                  
+                  // Close the incoming call modal
+                  setIncomingCall(null);
+                }}
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCall && activeRoom && (
+        <ZegoCallPopup
+          roomId={activeRoom}
+          userId={currentUserId!}
+          onClose={() => {
+            // Notify other participants that call ended
+            if (conversation) {
+              const participantIds = conversation.members.map(m => m.id);
+              endCall(activeRoom, participantIds);
+            }
+            
+            setShowCall(false);
+            setActiveRoom(null);
+          }}
+        />
+      )}
 
       {/* Contact Modal */}
       {showContactModal && conversation?.type === "PRIVATE" && (

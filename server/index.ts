@@ -384,6 +384,108 @@ io.on('connection', async (socket: Socket) => {
     authenticatedSocket.leave(`conversation:${conversationId}`);
   });
 
+  // Handle video call events
+  authenticatedSocket.on('incoming_call', async (data: any) => {
+    try {
+      const { callerId, calleeId, roomId } = data;
+      
+      // Verify the caller is the authenticated user
+      if (callerId !== userId) {
+        authenticatedSocket.emit('error', { message: 'Unauthorized call attempt' });
+        return;
+      }
+
+      // Find the callee's socket(s) and notify them
+      const calleeSocketIds = onlineUsers.get(calleeId);
+      if (calleeSocketIds && calleeSocketIds.size > 0) {
+        // Send to all of callee's connected sockets
+        calleeSocketIds.forEach((socketId: string | string[]) => {
+          io.to(socketId).emit('incoming_call', {
+            callerId: callerId,
+            caller: user,
+            roomId: roomId
+          });
+        });
+      } else {
+        // Callee is offline
+        authenticatedSocket.emit('call_failed', { 
+          reason: 'User is offline',
+          calleeId: calleeId 
+        });
+      }
+    } catch (error) {
+      console.error('Error handling incoming call:', error);
+      authenticatedSocket.emit('error', { message: 'Failed to initiate call' });
+    }
+  });
+
+  authenticatedSocket.on('call_accepted', async (data: any) => {
+    try {
+      const { roomId, callerId } = data;
+      
+      // Find the caller's socket(s) and notify them
+      const callerSocketIds = onlineUsers.get(callerId);
+      if (callerSocketIds && callerSocketIds.size > 0) {
+        callerSocketIds.forEach((socketId: string | string[]) => {
+          io.to(socketId).emit('call_accepted', {
+            roomId: roomId,
+            acceptedBy: userId,
+            acceptedByUser: user
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error handling call acceptance:', error);
+      authenticatedSocket.emit('error', { message: 'Failed to accept call' });
+    }
+  });
+
+  authenticatedSocket.on('call_rejected', async (data: any) => {
+    try {
+      const { roomId, callerId } = data;
+      
+      // Find the caller's socket(s) and notify them
+      const callerSocketIds = onlineUsers.get(callerId);
+      if (callerSocketIds && callerSocketIds.size > 0) {
+        callerSocketIds.forEach((socketId: string | string[]) => {
+          io.to(socketId).emit('call_rejected', {
+            roomId: roomId,
+            rejectedBy: userId,
+            rejectedByUser: user
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error handling call rejection:', error);
+      authenticatedSocket.emit('error', { message: 'Failed to reject call' });
+    }
+  });
+
+  authenticatedSocket.on('call_ended', async (data: any) => {
+    try {
+      const { roomId, participantIds } = data;
+      
+      // Notify all participants that the call has ended
+      participantIds.forEach((participantId: string) => {
+        if (participantId !== userId) {
+          const participantSocketIds = onlineUsers.get(participantId);
+          if (participantSocketIds && participantSocketIds.size > 0) {
+            participantSocketIds.forEach((socketId: string | string[]) => {
+              io.to(socketId).emit('call_ended', {
+                roomId: roomId,
+                endedBy: userId,
+                endedByUser: user
+              });
+            });
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error handling call end:', error);
+      authenticatedSocket.emit('error', { message: 'Failed to end call' });
+    }
+  });
+
   // Handle disconnect
   authenticatedSocket.on('disconnect', async () => {
     // // console.log(`User ${user.fullName} disconnected`);

@@ -12,6 +12,11 @@ interface UseSocketOptions {
   onUserOffline?: (data: { userId: string; lastSeen: Date }) => void;
   onMessageRead?: (data: { messageId: string; userId: string; user: any; readAt: Date }) => void;
   onFileMessageUploaded?: (data: { messageId: string; conversationId: string; senderId: string }) => void;
+  onIncomingCall?: (data: { callerId: string; caller: any; roomId: string }) => void;
+  onCallAccepted?: (data: { roomId: string; acceptedBy: string; acceptedByUser: any }) => void;
+  onCallRejected?: (data: { roomId: string; rejectedBy: string; rejectedByUser: any }) => void;
+  onCallEnded?: (data: { roomId: string; endedBy: string; endedByUser: any }) => void;
+  onCallFailed?: (data: { reason: string; calleeId: string }) => void;
 }
 
 export const useSocket = (options: UseSocketOptions = {}) => {
@@ -116,6 +121,32 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       setOnlineUsers(map);
     });
 
+    // Call events
+    socket.on('incoming_call', (data) => {
+      console.log('incoming_call event received:', data);
+      options.onIncomingCall?.(data);
+    });
+
+    socket.on('call_accepted', (data) => {
+      console.log('call_accepted event received:', data);
+      options.onCallAccepted?.(data);
+    });
+
+    socket.on('call_rejected', (data) => {
+      console.log('call_rejected event received:', data);
+      options.onCallRejected?.(data);
+    });
+
+    socket.on('call_ended', (data) => {
+      console.log('call_ended event received:', data);
+      options.onCallEnded?.(data);
+    });
+
+    socket.on('call_failed', (data) => {
+      console.log('call_failed event received:', data);
+      options.onCallFailed?.(data);
+    });
+
 
     return () => {
       socket.disconnect();
@@ -193,6 +224,43 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     }
   };
 
+  // Call methods
+  const initiateCall = (callerId: string, calleeId: string, roomId: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('incoming_call', { 
+        callerId, 
+        calleeId, 
+        roomId 
+      });
+    }
+  };
+
+  const acceptCall = (roomId: string, callerId: string) => {
+    console.log('acceptCall called:', { roomId, callerId, connected: socketRef.current?.connected });
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('call_accepted', { roomId, callerId });
+      console.log('call_accepted event emitted');
+    } else {
+      console.error('Socket not connected when trying to accept call');
+    }
+  };
+
+  const rejectCall = (roomId: string, callerId: string) => {
+    console.log('rejectCall called:', { roomId, callerId, connected: socketRef.current?.connected });
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('call_rejected', { roomId, callerId });
+      console.log('call_rejected event emitted');
+    } else {
+      console.error('Socket not connected when trying to reject call');
+    }
+  };
+
+  const endCall = (roomId: string, participantIds: string[]) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('call_ended', { roomId, participantIds });
+    }
+  };
+
   return {
     isConnected,
     onlineUsers: onlineUsersArray, // Use memoized array
@@ -206,6 +274,10 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     isUserOnline,
     isUserTyping,
     getTypingUsersInConversation,
-    notifyFileMessage
+    notifyFileMessage,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    endCall
   };
 };
