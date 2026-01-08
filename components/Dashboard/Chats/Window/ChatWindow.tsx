@@ -935,6 +935,8 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   };
 
   const handleCloseCall = useCallback(() => {
+    console.log("Closing call...");
+
     // Notify other participants that call ended
     if (conversation && activeRoom) {
       const participantIds = conversation.members.map((m) => m.id);
@@ -943,7 +945,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
     setShowCall(false);
     setActiveRoom(null);
-  }, []); // Add only necessary dependencies here
+  }, [conversation, activeRoom, endCall]); // Add dependencies
 
   const handleDownloadMessage = (message: Message) => {
     if (!message.fileUrl) return;
@@ -1530,9 +1532,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
         <ZegoCallPopup
           roomId={activeRoom}
           userId={currentUserId!}
-          onClose={() => {
-            handleCloseCall;
-          }}
+          onClose={handleCloseCall}
         />
       )}
 

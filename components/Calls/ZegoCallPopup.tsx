@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 
@@ -15,6 +14,14 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const zegoInstanceRef = useRef<any>(null);
   const hasJoinedRef = useRef(false);
+  
+  // Add this ref to store the latest onClose
+  const onCloseRef = useRef(onClose);
+
+  // Update the ref whenever onClose changes
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!rootRef.current || hasJoinedRef.current) return;
@@ -22,7 +29,7 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
     // Prevent body scroll when popup is open
     document.body.style.overflow = 'hidden';
 
-    // Handle escape key
+    // Handle escape key - use ref instead of direct onClose
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleClose();
@@ -39,20 +46,20 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
 
         const appId = Number(process.env.NEXT_PUBLIC_ZEGO_APP_ID);
         const serverSecret = process.env.NEXT_PUBLIC_ZEGO_SERVER_SECRET;
+
         if (!appId || !serverSecret) {
           throw new Error('Zego env not configured.');
         }
 
         console.log('Starting call setup with:', { appId, userId, roomId });
 
-        // Use the test token generation method which is simpler and works for development
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           appId,
-          serverSecret, // Your server secret
+          serverSecret,
           roomId,
           userId,
           `use_${userId}`,
-          720 // Token validity in minutes (12 hours)
+          720
         );
 
         console.log('Kit token generated successfully');
@@ -83,7 +90,7 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
           onLeaveRoom: () => {
             console.log('User left room');
             cleanup();
-            onClose();
+            onCloseRef.current(); // Use ref here
           },
           onJoinRoom: () => {
             console.log('Successfully joined room:', roomId);
@@ -111,17 +118,14 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
 
     // Cleanup function
     return () => {
-      // Restore body scroll
       document.body.style.overflow = 'unset';
       document.removeEventListener('keydown', handleEscape);
       cleanup();
     };
-  }, [roomId, userId]);
+  }, [roomId, userId]); // onClose removed from dependencies
 
   const cleanup = () => {
-    // Restore body scroll
     document.body.style.overflow = 'unset';
-    
     if (zegoInstanceRef.current) {
       try {
         zegoInstanceRef.current.destroy();
@@ -135,12 +139,12 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
 
   const handleClose = () => {
     cleanup();
-    onClose();
+    onCloseRef.current(); // Use ref here instead of direct onClose
   };
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-9999">
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]">
         <div className="bg-white dark:bg-zinc-800 rounded-lg p-6 max-w-md mx-4">
           <h3 className="text-lg font-semibold text-red-600 mb-2">Call Error</h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">{error}</p>
@@ -169,9 +173,8 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/80 flex items-center justify-center z-9999"
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]"
       onClick={(e) => {
-        // Only close if clicking the backdrop, not the modal content
         if (e.target === e.currentTarget) {
           handleClose();
         }
@@ -187,6 +190,7 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
             </div>
           </div>
         )}
+        
         <div ref={rootRef} className="w-full h-full rounded-lg overflow-hidden" />
         
         {/* Close button */}
@@ -199,7 +203,7 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        
+
         {/* Call info overlay */}
         {!loading && (
           <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
