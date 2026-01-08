@@ -116,7 +116,7 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
       document.removeEventListener('keydown', handleEscape);
       cleanup();
     };
-  }, [roomId, userId, onClose]);
+  }, [roomId, userId]);
 
   const cleanup = () => {
     // Restore body scroll

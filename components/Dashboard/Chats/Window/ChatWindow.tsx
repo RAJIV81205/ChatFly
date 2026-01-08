@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Send,
   Phone,
@@ -282,28 +282,28 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       });
     },
     onIncomingCall: ({ callerId, roomId }) => {
-      console.log('Incoming call received:', { callerId, roomId });
+      console.log("Incoming call received:", { callerId, roomId });
       setIncomingCall({ callerId, roomId });
     },
     onCallAccepted: ({ roomId }) => {
-      console.log('Call accepted, joining room:', roomId);
+      console.log("Call accepted, joining room:", roomId);
       setActiveRoom(roomId);
       setShowCall(true);
       setIncomingCall(null);
     },
     onCallRejected: () => {
-      console.log('Call rejected');
+      console.log("Call rejected");
       alert("Call rejected");
       setIncomingCall(null);
     },
     onCallEnded: () => {
-      console.log('Call ended');
+      console.log("Call ended");
       setShowCall(false);
       setActiveRoom(null);
       alert("Call ended");
     },
     onCallFailed: ({ reason }) => {
-      console.log('Call failed:', reason);
+      console.log("Call failed:", reason);
       alert(`Call failed: ${reason}`);
     },
   });
@@ -934,6 +934,17 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     setShowFilePreview(true);
   };
 
+  const handleCloseCall = useCallback(() => {
+    // Notify other participants that call ended
+    if (conversation && activeRoom) {
+      const participantIds = conversation.members.map((m) => m.id);
+      endCall(activeRoom, participantIds);
+    }
+
+    setShowCall(false);
+    setActiveRoom(null);
+  }, []); // Add only necessary dependencies here
+
   const handleDownloadMessage = (message: Message) => {
     if (!message.fileUrl) return;
 
@@ -980,7 +991,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
     // notify the other user
     const otherUser = conversation.members.find((m) => m.id !== currentUserId);
-    
+
     if (!otherUser) return;
 
     initiateCall(currentUserId, otherUser.id, roomId);
@@ -1473,19 +1484,19 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               From: {incomingCall.callerId}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
-              Socket: {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+              Socket: {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
             </p>
 
             <div className="flex justify-center gap-4">
               <button
                 className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition"
                 onClick={() => {
-                  console.log('Accept button clicked:', incomingCall);
-                  console.log('Socket connected:', isConnected);
-                  
+                  console.log("Accept button clicked:", incomingCall);
+                  console.log("Socket connected:", isConnected);
+
                   // Accept the call via socket
                   acceptCall(incomingCall.roomId, incomingCall.callerId);
-                  
+
                   // Immediately join the video call room for the receiver
                   setActiveRoom(incomingCall.roomId);
                   setShowCall(true);
@@ -1498,12 +1509,12 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               <button
                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
                 onClick={() => {
-                  console.log('Reject button clicked:', incomingCall);
-                  console.log('Socket connected:', isConnected);
-                  
+                  console.log("Reject button clicked:", incomingCall);
+                  console.log("Socket connected:", isConnected);
+
                   // Reject the call via socket
                   rejectCall(incomingCall.roomId, incomingCall.callerId);
-                  
+
                   // Close the incoming call modal
                   setIncomingCall(null);
                 }}
@@ -1520,14 +1531,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           roomId={activeRoom}
           userId={currentUserId!}
           onClose={() => {
-            // Notify other participants that call ended
-            if (conversation) {
-              const participantIds = conversation.members.map(m => m.id);
-              endCall(activeRoom, participantIds);
-            }
-            
-            setShowCall(false);
-            setActiveRoom(null);
+            handleCloseCall;
           }}
         />
       )}
