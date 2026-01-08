@@ -65,7 +65,7 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
         await zp.joinRoom({
           container: rootRef.current,
           scenario: {
-            mode: ZegoUIKitPrebuilt.VideoConference,
+            mode: ZegoUIKitPrebuilt.OneONoneCall,
           },
           turnOnMicrophoneWhenJoining: true,
           turnOnCameraWhenJoining: true,
