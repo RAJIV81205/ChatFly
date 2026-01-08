@@ -38,8 +38,9 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
         hasJoinedRef.current = true;
 
         const appId = Number(process.env.NEXT_PUBLIC_ZEGO_APP_ID);
-        if (!appId) {
-          throw new Error('Zego App ID not configured. Please check NEXT_PUBLIC_ZEGO_APP_ID in environment variables.');
+        const serverSecret = process.env.NEXT_PUBLIC_ZEGO_SERVER_SECRET;
+        if (!appId || !serverSecret) {
+          throw new Error('Zego env not configured.');
         }
 
         console.log('Starting call setup with:', { appId, userId, roomId });
@@ -47,10 +48,10 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
         // Use the test token generation method which is simpler and works for development
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           appId,
-          "444f47b3a82741e7242a74d42914132d", // Your server secret
+          serverSecret, // Your server secret
           roomId,
           userId,
-          `user_${userId}`,
+          `use_${userId}`,
           720 // Token validity in minutes (12 hours)
         );
 
