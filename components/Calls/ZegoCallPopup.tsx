@@ -79,6 +79,7 @@ export default function ZegoCallPopup({
             mode: ZegoUIKitPrebuilt.OneONoneCall,
           },
           showPreJoinView:false,
+          showLeaveRoomConfirmDialog:false,
           turnOnMicrophoneWhenJoining: true,
           turnOnCameraWhenJoining: true,
           showMyCameraToggleButton: true,
