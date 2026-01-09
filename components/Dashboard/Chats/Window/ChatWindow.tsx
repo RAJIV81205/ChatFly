@@ -304,6 +304,8 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     },
     onCallFailed: ({ reason }) => {
       console.log("Call failed:", reason);
+      setShowCall(false);
+      setActiveRoom(null);
       alert(`Call failed: ${reason}`);
     },
   });
