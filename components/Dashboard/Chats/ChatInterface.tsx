@@ -47,7 +47,7 @@ const ChatInterface = () => {
       
       // Play notification sound
       try {
-        const audio = new Audio('/sounds/incoming-call.mp3');
+        const audio = new Audio('https://cdn.pixabay.com/audio/2025/11/16/audio_a8d8fa395c.mp3');
         audio.play().catch(e => console.log('Could not play notification sound:', e));
       } catch (e) {
         console.log('Audio notification not available:', e);
