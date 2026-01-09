@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
+import ThemedToaster from "@/components/ThemedToaster";
 
 export const metadata: Metadata = {
   title: "Ping",
@@ -21,6 +22,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <ThemedToaster />
           {children}
         </ThemeProvider>
       </body>

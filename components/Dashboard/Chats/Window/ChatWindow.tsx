@@ -19,6 +19,7 @@ import MessageInput from "./MessageInput";
 import Contact from "./Contact";
 import FilePreview from "./FilePreview";
 import ZegoCallPopup from "@/components/Calls/ZegoCallPopup";
+import toast from "react-hot-toast";
 
 interface User {
   id: string;
@@ -306,7 +307,7 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       console.log("Call failed:", reason);
       setShowCall(false);
       setActiveRoom(null);
-      alert(`Call failed: ${reason}`);
+      toast.error(`Call failed: ${reason}`);
     },
   });
 
