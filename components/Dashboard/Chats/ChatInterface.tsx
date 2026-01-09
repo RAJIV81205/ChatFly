@@ -68,11 +68,11 @@ const ChatInterface = () => {
   const { isConnected, acceptCall, rejectCall, endCall, initiateCall } =
     useSocket({
       token: token || undefined,
-      onIncomingCall: ({ callerId, roomId }) => {
-        console.log("🔔 Global incoming call received:", { callerId, roomId });
+      onIncomingCall:({ callerId, roomId }) => {
+  
 
         // Get caller info if possible
-        fetchCallerInfo(callerId).then((callerInfo) => {
+         fetchCallerInfo(callerId).then((callerInfo) => {
           console.log("👤 Caller info fetched:", callerInfo);
           setIncomingCall({
             callerId,
@@ -87,6 +87,24 @@ const ChatInterface = () => {
 
           // Reset timer
           setCallTimer(30);
+
+           // Play notification sound
+        try {
+          // Stop any existing audio
+          stopRingtone();
+
+          const audio = new Audio(
+            "https://cdn.pixabay.com/audio/2025/11/16/audio_a8d8fa395c.mp3"
+          );
+          audioRef.current = audio;
+          audio.loop = true; // Loop the ringtone
+          audio.volume = 0.7; // Set volume to 70%
+          audio.play().catch((e) => {
+            console.log("Could not play notification sound:", e);
+          });
+        } catch (e) {
+          console.log("Audio notification not available:", e);
+        }
 
           // Start countdown timer
           callTimerRef.current = setInterval(() => {
@@ -116,23 +134,7 @@ const ChatInterface = () => {
           }, 30000);
         });
 
-        // Play notification sound
-        try {
-          // Stop any existing audio
-          stopRingtone();
-
-          const audio = new Audio(
-            "https://cdn.pixabay.com/audio/2025/11/16/audio_a8d8fa395c.mp3"
-          );
-          audioRef.current = audio;
-          audio.loop = true; // Loop the ringtone
-          audio.volume = 0.7; // Set volume to 70%
-          audio.play().catch((e) => {
-            console.log("Could not play notification sound:", e);
-          });
-        } catch (e) {
-          console.log("Audio notification not available:", e);
-        }
+       
       },
       onCallAccepted: ({ roomId }) => {
         console.log("Call accepted globally, joining room:", roomId);
