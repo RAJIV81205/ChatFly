@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import ChatList from "./ChatList";
 import ChatWindow from "./Window/ChatWindow";
@@ -32,6 +32,14 @@ const ChatInterface = () => {
     callerProfilePic?: string | null;
     callerUsername?: string;
   } | null>(null);
+  const [outgoingCall, setOutgoingCall] = useState<{
+    receiverId: string;
+    roomId: string;
+    receiverName?: string;
+  } | null>(null);
+  const [callTimer, setCallTimer] = useState<number>(30);
+  const callTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Global socket connection for receiving calls
   const {
@@ -63,31 +71,136 @@ const ChatInterface = () => {
           callerProfilePic: callerInfo.profilePicUrl,
           callerUsername: callerInfo.username
         });
+
+        // Set 30-second timeout for incoming call
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+        }
+        if (callTimerRef.current) {
+          clearInterval(callTimerRef.current);
+        }
+        
+        // Reset timer
+        setCallTimer(30);
+        
+        // Start countdown timer
+        callTimerRef.current = setInterval(() => {
+          setCallTimer((prev) => {
+            if (prev <= 1) {
+              if (callTimerRef.current) {
+                clearInterval(callTimerRef.current);
+              }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
+        callTimeoutRef.current = setTimeout(() => {
+          console.log("⏰ Incoming call timed out");
+          setIncomingCall(null);
+          setCallTimer(30);
+          if (callTimerRef.current) {
+            clearInterval(callTimerRef.current);
+          }
+          // The caller will be notified via onCallTimeout
+        }, 30000);
       });
     },
     onCallAccepted: ({ roomId }) => {
       console.log("Call accepted globally, joining room:", roomId);
+      
+      // Clear any timeouts
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+      
+      // Clear outgoing call state and show call interface
+      setOutgoingCall(null);
       setActiveRoom(roomId);
       setShowCall(true);
       setIncomingCall(null);
+      
+      // Dismiss any existing toasts
+      toast.dismiss();
     },
     onCallRejected: () => {
       console.log("Call rejected globally");
+      
+      // Clear timeouts and states
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+      
       setIncomingCall(null);
-      toast.error("Call rejected");
+      setOutgoingCall(null);
+      toast.dismiss();
+      toast.error("Call declined");
     },
     onCallEnded: () => {
       console.log("Call ended globally");
+      
+      // Clear all call-related state
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+      
       setShowCall(false);
       setActiveRoom(null);
+      setIncomingCall(null);
+      setOutgoingCall(null);
+      setCallTimer(30);
+      toast.dismiss();
     },
     onCallFailed: ({ reason }) => {
       console.log("Call failed globally:", reason);
+      
+      // Clear all call-related state
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+      
       setShowCall(false);
       setActiveRoom(null);
+      setIncomingCall(null);
+      setOutgoingCall(null);
+      setCallTimer(30);
+      toast.dismiss();
       toast.error(`Call failed: ${reason}`);
     },
   });
+
+  useEffect(() => {
+    // Cleanup timeout on unmount
+    return () => {
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+      }
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Get JWT token for WebSocket authentication
@@ -228,9 +341,21 @@ const ChatInterface = () => {
                   @{incomingCall.callerUsername}
                 </p>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">
                 Socket: {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
               </p>
+              
+              {/* Countdown Timer */}
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  callTimer <= 10 ? 'bg-red-500 animate-pulse' : 'bg-orange-500'
+                }`}>
+                  <span className="text-white text-sm font-bold">{callTimer}</span>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  seconds remaining
+                </span>
+              </div>
             </div>
 
             {/* Action Buttons */}
@@ -239,8 +364,20 @@ const ChatInterface = () => {
                 className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
                 onClick={() => {
                   console.log("Reject button clicked globally:", incomingCall);
+                  
+                  // Clear timeout
+                  if (callTimeoutRef.current) {
+                    clearTimeout(callTimeoutRef.current);
+                    callTimeoutRef.current = null;
+                  }
+                  if (callTimerRef.current) {
+                    clearInterval(callTimerRef.current);
+                    callTimerRef.current = null;
+                  }
+                  
                   rejectCall(incomingCall.roomId, incomingCall.callerId);
                   setIncomingCall(null);
+                  setCallTimer(30);
                 }}
                 title="Decline Call"
               >
@@ -253,10 +390,22 @@ const ChatInterface = () => {
                 className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
                 onClick={() => {
                   console.log("Accept button clicked globally:", incomingCall);
+                  
+                  // Clear timeout
+                  if (callTimeoutRef.current) {
+                    clearTimeout(callTimeoutRef.current);
+                    callTimeoutRef.current = null;
+                  }
+                  if (callTimerRef.current) {
+                    clearInterval(callTimerRef.current);
+                    callTimerRef.current = null;
+                  }
+                  
                   acceptCall(incomingCall.roomId, incomingCall.callerId);
                   setActiveRoom(incomingCall.roomId);
                   setShowCall(true);
                   setIncomingCall(null);
+                  setCallTimer(30);
                 }}
                 title="Accept Call"
               >

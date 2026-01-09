@@ -965,8 +965,22 @@ const ChatWindow = ({ chatId, currentUserId, token, globalSocketInstance }: Chat
 
     socketToUse.initiateCall(currentUserId, otherUser.id, roomId);
 
-    // Note: The global socket will handle the call popup
-    toast.loading("Calling...");
+    // Show calling toast for 30 seconds
+    const callingToast = toast.loading(
+      `Calling ${otherUser.name || otherUser.username}...`,
+      {
+        duration: 30000,
+        style: {
+          background: '#10b981',
+          color: 'white',
+        },
+      }
+    );
+
+    // Set timeout to dismiss toast and show no answer message
+    setTimeout(() => {
+      toast.dismiss(callingToast);
+    }, 30000);
   };
 
   // For file URLs, check if they're already decrypted or need to be served through our API
