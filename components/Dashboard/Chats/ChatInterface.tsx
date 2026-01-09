@@ -416,6 +416,7 @@ const ChatInterface = () => {
         <ZegoCallPopup
           roomId={activeRoom}
           userId={currentUser.id}
+          userName = {currentUser.fullName || currentUser.username}
           onClose={handleCloseCall}
         />
       )}

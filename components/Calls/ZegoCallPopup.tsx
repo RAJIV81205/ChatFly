@@ -5,10 +5,11 @@ import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 interface Props {
   roomId: string;
   userId: string;
+  userName:string;
   onClose: () => void;
 }
 
-export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
+export default function ZegoCallPopup({ roomId, userId,userName , onClose }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +52,13 @@ export default function ZegoCallPopup({ roomId, userId, onClose }: Props) {
           throw new Error('Zego env not configured.');
         }
 
-        console.log('Starting call setup with:', { appId, userId, roomId });
 
         const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
           appId,
           serverSecret,
           roomId,
           userId,
-          `use_${userId}`,
+          userName,
           720
         );
 
