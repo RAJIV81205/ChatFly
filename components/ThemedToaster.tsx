@@ -5,13 +5,13 @@ import { Toaster } from "react-hot-toast";
 import { useEffect, useState } from "react";
 
 function ToastInner() {
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
-  const isDark = theme === "dark";
+  const isDark = resolvedTheme === "dark";
 
   return (
     <Toaster
