@@ -40,6 +40,28 @@ const ChatInterface = () => {
   const [callTimer, setCallTimer] = useState<number>(30);
   const callTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Helper function to stop ringtone
+  const stopRingtone = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+  };
+
+  // Helper function to clear all timers
+  const clearAllTimers = () => {
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+  };
 
   // Global socket connection for receiving calls
   const {
@@ -55,8 +77,23 @@ const ChatInterface = () => {
       
       // Play notification sound
       try {
+        // Stop any existing audio
+        stopRingtone();
+        
         const audio = new Audio('https://cdn.pixabay.com/audio/2025/11/16/audio_a8d8fa395c.mp3');
-        audio.play().catch(e => console.log('Could not play notification sound:', e));
+        audioRef.current = audio;
+        audio.loop = true; // Loop the ringtone
+        audio.volume = 0.7; // Set volume to 70%
+        audio.play().catch(e => {
+          console.log('Could not play notification sound:', e);
+          // Fallback: try to play a system notification sound
+          try {
+            const fallbackAudio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+            fallbackAudio.play();
+          } catch (fallbackError) {
+            console.log('Fallback audio also failed:', fallbackError);
+          }
+        });
       } catch (e) {
         console.log('Audio notification not available:', e);
       }
@@ -73,12 +110,7 @@ const ChatInterface = () => {
         });
 
         // Set 30-second timeout for incoming call
-        if (callTimeoutRef.current) {
-          clearTimeout(callTimeoutRef.current);
-        }
-        if (callTimerRef.current) {
-          clearInterval(callTimerRef.current);
-        }
+        clearAllTimers();
         
         // Reset timer
         setCallTimer(30);
@@ -98,6 +130,10 @@ const ChatInterface = () => {
         
         callTimeoutRef.current = setTimeout(() => {
           console.log("⏰ Incoming call timed out");
+          
+          // Stop ringtone and clear timers
+          stopRingtone();
+          
           setIncomingCall(null);
           setCallTimer(30);
           if (callTimerRef.current) {
@@ -110,15 +146,9 @@ const ChatInterface = () => {
     onCallAccepted: ({ roomId }) => {
       console.log("Call accepted globally, joining room:", roomId);
       
-      // Clear any timeouts
-      if (callTimeoutRef.current) {
-        clearTimeout(callTimeoutRef.current);
-        callTimeoutRef.current = null;
-      }
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-        callTimerRef.current = null;
-      }
+      // Stop ringtone and clear timers
+      stopRingtone();
+      clearAllTimers();
       
       // Clear outgoing call state and show call interface
       setOutgoingCall(null);
@@ -132,15 +162,9 @@ const ChatInterface = () => {
     onCallRejected: () => {
       console.log("Call rejected globally");
       
-      // Clear timeouts and states
-      if (callTimeoutRef.current) {
-        clearTimeout(callTimeoutRef.current);
-        callTimeoutRef.current = null;
-      }
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-        callTimerRef.current = null;
-      }
+      // Stop ringtone and clear timers
+      stopRingtone();
+      clearAllTimers();
       
       setIncomingCall(null);
       setOutgoingCall(null);
@@ -150,15 +174,9 @@ const ChatInterface = () => {
     onCallEnded: () => {
       console.log("Call ended globally");
       
-      // Clear all call-related state
-      if (callTimeoutRef.current) {
-        clearTimeout(callTimeoutRef.current);
-        callTimeoutRef.current = null;
-      }
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-        callTimerRef.current = null;
-      }
+      // Stop ringtone and clear timers
+      stopRingtone();
+      clearAllTimers();
       
       setShowCall(false);
       setActiveRoom(null);
@@ -170,15 +188,9 @@ const ChatInterface = () => {
     onCallFailed: ({ reason }) => {
       console.log("Call failed globally:", reason);
       
-      // Clear all call-related state
-      if (callTimeoutRef.current) {
-        clearTimeout(callTimeoutRef.current);
-        callTimeoutRef.current = null;
-      }
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-        callTimerRef.current = null;
-      }
+      // Stop ringtone and clear timers
+      stopRingtone();
+      clearAllTimers();
       
       setShowCall(false);
       setActiveRoom(null);
@@ -193,12 +205,8 @@ const ChatInterface = () => {
   useEffect(() => {
     // Cleanup timeout on unmount
     return () => {
-      if (callTimeoutRef.current) {
-        clearTimeout(callTimeoutRef.current);
-      }
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-      }
+      clearAllTimers();
+      stopRingtone();
     };
   }, []);
 
@@ -365,15 +373,9 @@ const ChatInterface = () => {
                 onClick={() => {
                   console.log("Reject button clicked globally:", incomingCall);
                   
-                  // Clear timeout
-                  if (callTimeoutRef.current) {
-                    clearTimeout(callTimeoutRef.current);
-                    callTimeoutRef.current = null;
-                  }
-                  if (callTimerRef.current) {
-                    clearInterval(callTimerRef.current);
-                    callTimerRef.current = null;
-                  }
+                  // Stop ringtone and clear timers
+                  stopRingtone();
+                  clearAllTimers();
                   
                   rejectCall(incomingCall.roomId, incomingCall.callerId);
                   setIncomingCall(null);
@@ -391,15 +393,9 @@ const ChatInterface = () => {
                 onClick={() => {
                   console.log("Accept button clicked globally:", incomingCall);
                   
-                  // Clear timeout
-                  if (callTimeoutRef.current) {
-                    clearTimeout(callTimeoutRef.current);
-                    callTimeoutRef.current = null;
-                  }
-                  if (callTimerRef.current) {
-                    clearInterval(callTimerRef.current);
-                    callTimerRef.current = null;
-                  }
+                  // Stop ringtone and clear timers
+                  stopRingtone();
+                  clearAllTimers();
                   
                   acceptCall(incomingCall.roomId, incomingCall.callerId);
                   setActiveRoom(incomingCall.roomId);
