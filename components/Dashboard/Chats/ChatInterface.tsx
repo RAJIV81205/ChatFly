@@ -8,6 +8,7 @@ import ZegoCallPopup from "@/components/Calls/ZegoCallPopup";
 import { getTokenForSocket } from "@/lib/utils/auth";
 import { useSocket } from "@/lib/hooks/useSocket";
 import toast from "react-hot-toast";
+import { PhoneOff, Phone, VolumeX } from "lucide-react";
 
 interface User {
   id: string;
@@ -300,109 +301,101 @@ const ChatInterface = () => {
       </div>
 
       {/* Global Incoming Call Modal */}
+      {/* Incoming Call Modal */}
       {incomingCall && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-zinc-800 p-8 rounded-2xl shadow-2xl w-96 text-center">
-            {/* Caller Profile Picture */}
-            <div className="mb-6">
-              {incomingCall.callerProfilePic ? (
-                <div className="relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md animate-fadeIn">
+          <div className="w-96 max-w-full bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl p-8 border border-zinc-200 dark:border-zinc-700 animate-slideUp">
+            {/* Caller Image */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative">
+                {incomingCall.callerProfilePic ? (
                   <Image
                     src={incomingCall.callerProfilePic}
                     alt={incomingCall.callerName || "Caller"}
-                    width={80}
-                    height={80}
-                    className="rounded-full mx-auto border-4 border-emerald-500 shadow-lg"
+                    width={90}
+                    height={90}
+                    className="rounded-full border-4 border-emerald-500 shadow-xl"
                   />
-                  {/* Pulsing ring animation */}
-                  <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-ping opacity-75"></div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center mx-auto border-4 border-emerald-500 shadow-lg">
-                    <span className="text-2xl font-bold text-white">
-                      {(incomingCall.callerName || incomingCall.callerId)
-                        .charAt(0)
-                        .toUpperCase()}
-                    </span>
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-emerald-500 flex items-center justify-center text-white text-3xl font-bold border-4 border-emerald-400 shadow-xl">
+                    {(incomingCall.callerName || incomingCall.callerId)
+                      .charAt(0)
+                      .toUpperCase()}
                   </div>
-                  {/* Pulsing ring animation */}
-                  <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-ping opacity-75"></div>
-                </div>
-              )}
-            </div>
+                )}
 
-            {/* Call Info */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Incoming Video Call
+                {/* Pulsing Ring */}
+                <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-ping opacity-70"></div>
+              </div>
+
+              {/* Caller details */}
+              <h2 className="mt-6 text-2xl font-semibold text-gray-900 dark:text-white">
+                Incoming Call
               </h2>
-              <p className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-1">
+
+              <p className="mt-1 text-lg font-medium text-gray-700 dark:text-gray-200">
                 {incomingCall.callerName || incomingCall.callerId}
               </p>
+
               {incomingCall.callerUsername && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   @{incomingCall.callerUsername}
                 </p>
               )}
-              <p className="text-xs text-gray-500 dark:text-gray-500 mb-2">
-                Socket: {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
-              </p>
 
-              {/* Countdown Timer */}
-              <div className="flex items-center justify-center gap-2 mb-2">
+              {/* Connection status */}
+              <span className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
+              </span>
+
+              {/* Timer */}
+              <div className="mt-3 flex justify-center items-center gap-2">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                    callTimer <= 10
-                      ? "bg-red-500 animate-pulse"
-                      : "bg-orange-500"
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold transition-all 
+            ${callTimer <= 10 ? "bg-red-500 animate-pulse" : "bg-amber-500"}`}
                 >
-                  <span className="text-white text-sm font-bold">
-                    {callTimer}
-                  </span>
+                  {callTimer}
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  seconds remaining
-                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  seconds left
+                </p>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-6">
+            {/* Buttons */}
+            <div className="flex justify-center items-center gap-10 mt-6">
+              {/* Reject */}
               <button
-                className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-white"
                 onClick={() => {
-                  console.log("Reject button clicked globally:", incomingCall);
-
-                  // Stop ringtone and clear timers
                   stopRingtone();
                   clearAllTimers();
-
                   rejectCall(incomingCall.roomId, incomingCall.callerId);
                   setIncomingCall(null);
                   setCallTimer(30);
                 }}
                 title="Decline Call"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M19.79 15.41C20.74 13.24 20.74 10.76 19.79 8.59L22.5 5.88C22.89 5.49 22.89 4.86 22.5 4.47L19.53 1.5C19.14 1.11 18.51 1.11 18.12 1.5L15.41 4.21C13.24 3.26 10.76 3.26 8.59 4.21L5.88 1.5C5.49 1.11 4.86 1.11 4.47 1.5L1.5 4.47C1.11 4.86 1.11 5.49 1.5 5.88L4.21 8.59C3.26 10.76 3.26 13.24 4.21 15.41L1.5 18.12C1.11 18.51 1.11 19.14 1.5 19.53L4.47 22.5C4.86 22.89 5.49 22.89 5.88 22.5L8.59 19.79C10.76 20.74 13.24 20.74 15.41 19.79L18.12 22.5C18.51 22.89 19.14 22.89 19.53 22.5L22.5 19.53C22.89 19.14 22.89 18.51 22.5 18.12L19.79 15.41Z" />
-                </svg>
+                <PhoneOff className="w-7 h-7" />
               </button>
 
+              {/* Mute Ringtone */}
               <button
-                className="bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                className="w-14 h-14 rounded-full bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600 flex items-center justify-center shadow-md transition-transform hover:scale-110 active:scale-95 text-gray-800 dark:text-gray-200"
                 onClick={() => {
-                  console.log("Accept button clicked globally:", incomingCall);
+                  stopRingtone();
+                }}
+                title="Mute Ringtone"
+              >
+                <VolumeX className="w-6 h-6" />
+              </button>
 
-                  // Stop ringtone and clear timers
+              {/* Accept */}
+              <button
+                className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 text-white"
+                onClick={() => {
                   stopRingtone();
                   clearAllTimers();
-
                   acceptCall(incomingCall.roomId, incomingCall.callerId);
                   setActiveRoom(incomingCall.roomId);
                   setShowCall(true);
@@ -411,13 +404,7 @@ const ChatInterface = () => {
                 }}
                 title="Accept Call"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
-                </svg>
+                <Phone className="w-7 h-7" />
               </button>
             </div>
           </div>
