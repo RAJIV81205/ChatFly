@@ -18,7 +18,6 @@ import { MessageStatus } from "./MessageStatus";
 import MessageInput from "./MessageInput";
 import Contact from "./Contact";
 import FilePreview from "./FilePreview";
-import ZegoCallPopup from "@/components/Calls/ZegoCallPopup";
 import toast from "react-hot-toast";
 
 interface User {
@@ -73,9 +72,16 @@ interface ChatWindowProps {
   chatId: string | null;
   currentUserId: string | null;
   token?: string;
+  globalSocketInstance?: {
+    isConnected: boolean;
+    acceptCall: (roomId: string, callerId: string) => void;
+    rejectCall: (roomId: string, callerId: string) => void;
+    endCall: (roomId: string, participantIds: string[]) => void;
+    initiateCall: (callerId: string, receiverId: string, roomId: string) => void;
+  };
 }
 
-const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
+const ChatWindow = ({ chatId, currentUserId, token, globalSocketInstance }: ChatWindowProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -99,12 +105,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   const typingIndicatorRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onlineStatusIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [showCall, setShowCall] = useState(false);
-  const [activeRoom, setActiveRoom] = useState<string | null>(null);
-  const [incomingCall, setIncomingCall] = useState<{
-    callerId: string;
-    roomId: string;
-  } | null>(null);
 
   // Socket integration
   const {
@@ -119,9 +119,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     getTypingUsersInConversation,
     notifyFileMessage,
     initiateCall,
-    acceptCall,
-    rejectCall,
-    endCall,
   } = useSocket({
     token,
     onUserTyping: (data) => {
@@ -279,32 +276,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           }
         });
       });
-    },
-    onIncomingCall: ({ callerId, roomId }) => {
-      console.log("Incoming call received:", { callerId, roomId });
-      setIncomingCall({ callerId, roomId });
-    },
-    onCallAccepted: ({ roomId }) => {
-      console.log("Call accepted, joining room:", roomId);
-      setActiveRoom(roomId);
-      setShowCall(true);
-      setIncomingCall(null);
-    },
-    onCallRejected: () => {
-      console.log("Call rejected");
-      alert("Call rejected");
-      setIncomingCall(null);
-    },
-    onCallEnded: () => {
-      console.log("Call ended");
-      setShowCall(false);
-      setActiveRoom(null);
-    },
-    onCallFailed: ({ reason }) => {
-      console.log("Call failed:", reason);
-      setShowCall(false);
-      setActiveRoom(null);
-      toast.error(`Call failed: ${reason}`);
     },
   });
 
@@ -934,19 +905,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
     setShowFilePreview(true);
   };
 
-  const handleCloseCall = useCallback(() => {
-    console.log("Closing call...");
-
-    // Notify other participants that call ended
-    if (conversation && activeRoom) {
-      const participantIds = conversation.members.map((m) => m.id);
-      endCall(activeRoom, participantIds);
-    }
-
-    setShowCall(false);
-    setActiveRoom(null);
-  }, [conversation, activeRoom, endCall]); // Add dependencies
-
   const handleDownloadMessage = (message: Message) => {
     if (!message.fileUrl) return;
 
@@ -987,7 +945,15 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
   };
 
   const handleVideoCall = () => {
-    if (!conversation || !currentUserId || !isConnected) return;
+    if (!conversation || !currentUserId) return;
+
+    // Use global socket if available, fallback to local socket
+    const socketToUse = globalSocketInstance?.isConnected ? globalSocketInstance : { isConnected, initiateCall };
+    
+    if (!socketToUse.isConnected) {
+      toast.error("Not connected to server");
+      return;
+    }
 
     const roomId = conversation.id + "-" + Date.now();
 
@@ -996,11 +962,10 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
 
     if (!otherUser) return;
 
-    initiateCall(currentUserId, otherUser.id, roomId);
+    socketToUse.initiateCall(currentUserId, otherUser.id, roomId);
 
-    // open popup for caller
-    setActiveRoom(roomId);
-    setShowCall(true);
+    // Note: The global socket will handle the call popup
+    toast.success("Call initiated...");
   };
 
   // For file URLs, check if they're already decrypted or need to be served through our API
@@ -1477,64 +1442,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
           onFileUpload={handleFileUpload}
         />
       </div>
-
-      {incomingCall && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-zinc-800 p-6 rounded-lg shadow-xl w-80 text-center">
-            <h2 className="text-lg font-semibold mb-4">Incoming Video Call</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-              From: {incomingCall.callerId}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
-              Socket: {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
-            </p>
-
-            <div className="flex justify-center gap-4">
-              <button
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition"
-                onClick={() => {
-                  console.log("Accept button clicked:", incomingCall);
-                  console.log("Socket connected:", isConnected);
-
-                  // Accept the call via socket
-                  acceptCall(incomingCall.roomId, incomingCall.callerId);
-
-                  // Immediately join the video call room for the receiver
-                  setActiveRoom(incomingCall.roomId);
-                  setShowCall(true);
-                  setIncomingCall(null);
-                }}
-              >
-                Accept
-              </button>
-
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
-                onClick={() => {
-                  console.log("Reject button clicked:", incomingCall);
-                  console.log("Socket connected:", isConnected);
-
-                  // Reject the call via socket
-                  rejectCall(incomingCall.roomId, incomingCall.callerId);
-
-                  // Close the incoming call modal
-                  setIncomingCall(null);
-                }}
-              >
-                Decline
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCall && activeRoom && (
-        <ZegoCallPopup
-          roomId={activeRoom}
-          userId={currentUserId!}
-          onClose={handleCloseCall}
-        />
-      )}
 
       {/* Contact Modal */}
       {showContactModal && conversation?.type === "PRIVATE" && (
