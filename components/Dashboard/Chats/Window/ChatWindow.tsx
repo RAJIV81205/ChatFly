@@ -82,7 +82,7 @@ interface ChatWindowProps {
   };
 }
 
-const ChatWindow = ({ chatId, currentUserId, token, currentUser, globalSocketInstance }: ChatWindowProps) => {
+const ChatWindow = ({ chatId, currentUserId, token, globalSocketInstance }: ChatWindowProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
