@@ -269,8 +269,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
               });
             }
 
-            // // console.log('🔵 Updated message:', updatedMessage);
-
             // Force a re-render to ensure UI updates
             setTimeout(() => setForceUpdate((prev) => prev + 1), 100);
 
@@ -301,7 +299,6 @@ const ChatWindow = ({ chatId, currentUserId, token }: ChatWindowProps) => {
       console.log("Call ended");
       setShowCall(false);
       setActiveRoom(null);
-      alert("Call ended");
     },
     onCallFailed: ({ reason }) => {
       console.log("Call failed:", reason);
