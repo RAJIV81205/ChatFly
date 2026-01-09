@@ -10,10 +10,12 @@ import toast from "react-hot-toast";
 
 interface User {
   id: string;
-  name: string;
+  fullName: string;
   username: string;
-  email: string;
-  avatar: string | null;
+  profilePicUrl: string | null;
+  lastSeen?: string;
+  bio?: string;
+  createdAt?: string;
 }
 
 const ChatInterface = () => {
@@ -136,6 +138,7 @@ const ChatInterface = () => {
           <ChatWindow
             chatId={selectedChatId}
             currentUserId={currentUser.id}
+            currentUser={currentUser}
             token={token}
             globalSocketInstance={{
               isConnected,

@@ -72,6 +72,7 @@ interface ChatWindowProps {
   chatId: string | null;
   currentUserId: string | null;
   token?: string;
+  currentUser? : User
   globalSocketInstance?: {
     isConnected: boolean;
     acceptCall: (roomId: string, callerId: string) => void;
@@ -81,7 +82,7 @@ interface ChatWindowProps {
   };
 }
 
-const ChatWindow = ({ chatId, currentUserId, token, globalSocketInstance }: ChatWindowProps) => {
+const ChatWindow = ({ chatId, currentUserId, token, currentUser, globalSocketInstance }: ChatWindowProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -965,7 +966,7 @@ const ChatWindow = ({ chatId, currentUserId, token, globalSocketInstance }: Chat
     socketToUse.initiateCall(currentUserId, otherUser.id, roomId);
 
     // Note: The global socket will handle the call popup
-    toast.success("Call initiated...");
+    toast.loading("Calling...");
   };
 
   // For file URLs, check if they're already decrypted or need to be served through our API
